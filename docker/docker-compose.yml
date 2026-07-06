@@ -1,0 +1,181 @@
+# use for pharse 1
+services:
+
+  identity-db:
+    image: postgres:16-alpine
+    container_name: learnhub-identity-db
+    restart: unless-stopped # automatically restart when crash
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: identity_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata # place data was saved
+    volumes:
+      - identity-db-data:/var/lib/postgresql/data
+    healthcheck:
+      # check if postgres is ready to receive connections
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d identity_db"]
+      interval: 10s   # check every 10s
+      timeout: 5s     # timeout after 5s if not response
+      retries: 5      # try again 5 times before notice unhealthy status
+      start_period: 10s # wait 10s after container start, then health check
+    networks:
+      - learnhub-network
+
+  user-db:
+    image: postgres:16-alpine
+    container_name: learnhub-user-db
+    restart: unless-stopped
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d user_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
+  course-db:
+    image: postgres:16-alpine
+    container_name: learnhub-course-db
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: course_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - course-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d course_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
+  enrollment-db:
+    image: postgres:16-alpine
+    container_name: learnhub-enrollment-db
+    restart: unless-stopped
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: enrollment_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - enrollment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d enrollment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: learnhub-payment-db
+    restart: unless-stopped
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: learnhub-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    # Redis does not need password when in local
+    # if you want to have password, then type:
+    # command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes
+    # appendonly yes: turn on AOF persistence — data will not lost when restart
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      # redis-cli ping → Redis returns "PONG" if healthy
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - learnhub-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: learnhub-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      # set a name for RabbitMQ node — important when cluster
+      RABBITMQ_NODENAME: rabbit@learnhub-rabbitmq
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+      # RabbitMQ start slower than PostgreSQL, need longer start_period
+    networks:
+      - learnhub-network
+
+volumes:
+  identity-db-data:
+    name: learnhub-identity-db-data
+  user-db-data:
+    name: learnhub-user-db-data
+  course-db-data:
+    name: learnhub-course-db-data
+  enrollment-db-data:
+    name: learnhub-enrollment-db-data
+  payment-db-data:
+    name: learnhub-payment-db-data
+  redis-data:
+    name: learnhub-redis-data
+  rabbitmq-data:
+    name: learnhub-rabbitmq-data
+
+networks:
+  learnhub-network:
+    name: learnhub-network
+    driver: bridge

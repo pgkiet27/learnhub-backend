@@ -1,21 +1,20 @@
-# Override config cho môi trường local
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/identity_db?options=-c+TimeZone%3DUTC
+    url: jdbc:postgresql://localhost:5433/identity_db
     username: learnhub
     password: learnhub123
 
   rabbitmq:
     host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
   data:
     redis:
       host: localhost
+      port: 6380   # ← 6380 vì Docker Compose map 6380:6379
 
-server:
-  timezone: UTC
-
-# Verbose logging khi dev
 logging:
   level:
     com.learnhub: DEBUG

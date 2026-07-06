@@ -1,0 +1,49 @@
+# Kế thừa toàn bộ từ docker-compose.yml
+include:
+  - docker-compose.yml
+
+services:
+  mongodb:
+    image: mongo:7-jammy
+    container_name: learnhub-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${POSTGRES_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${POSTGRES_PASSWORD}
+      MONGO_INITDB_DATABASE: communication_db
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - learnhub-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: learnhub-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6333/healthz || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
+volumes:
+  mongodb-data:
+    name: learnhub-mongodb-data
+  qdrant-data:
+    name: learnhub-qdrant-data

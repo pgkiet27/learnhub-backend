@@ -1,20 +1,20 @@
-# Override config cho môi trường local
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5434/user_db
     username: learnhub
     password: learnhub123
-    hikari:
-      connection-init-sql: "SET TimeZone='UTC'"
 
   rabbitmq:
     host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
   data:
     redis:
       host: localhost
+      port: 6380
 
-# Verbose logging khi dev
 logging:
   level:
     com.learnhub: DEBUG
