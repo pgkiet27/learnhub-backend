@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="APP_NAME"
+                    source="spring.application.name" defaultValue="learnhub-service"/>
+    <springProperty scope="context" name="LOKI_URL"
+                    source="loki.url" defaultValue="http://localhost:3100"/>
+
+    <!-- Console Appender — log ra terminal -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- %X{traceId}: trace ID từ OpenTelemetry để correlate với Jaeger -->
+            <pattern>%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Loki Appender — gửi logs đến Loki -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>${LOKI_URL}/loki/api/v1/push</url>
+        </http>
+        <format>
+            <label>
+                <pattern>app=${APP_NAME},host=${HOSTNAME},level=%level</pattern>
+            </label>
+            <message>
+                <pattern>{"timestamp":"%d{ISO8601}","level":"%level","traceId":"%X{traceId:-}","logger":"%logger{36}","message":"%msg"}</pattern>
+            </message>
+        </format>
+    </appender>
+
+    <!-- Profile local: chỉ log ra console -->
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <logger name="com.learnhub" level="DEBUG"/>
+    </springProfile>
+
+    <!-- Profile production: log ra console VÀ gửi Loki -->
+    <springProfile name="production">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+        <logger name="com.learnhub" level="INFO"/>
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+    </springProfile>
+
+</configuration>

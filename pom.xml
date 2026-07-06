@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Spring Boot parent configuration -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <!-- [SỬA 1] Nâng từ 3.3.4 lên 3.4.5 để support Java 25 tốt hơn -->
+        <version>3.4.5</version>
+        <relativePath/>
+    </parent>
+
+    <!-- Parent project metadata -->
+    <groupId>com.learnhub</groupId>
+    <artifactId>learnhub-backend</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>LearnHub Backend</name>
+    <description>AI-Integrated Online Learning Platform</description>
+
+    <!-- Child modules -->
+    <modules>
+        <module>common</module>
+        <module>api-gateway</module>
+        <module>identity-service</module>
+        <module>user-service</module>
+        <module>course-service</module>
+        <module>enrollment-service</module>
+        <module>payment-service</module>
+    </modules>
+
+    <!-- Shared properties -->
+    <properties>
+        <!-- [SỬA 2] Đổi từ 21 lên 25 cho khớp với Java đang dùng -->
+        <java.version>25</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <springdoc.version>2.8.9</springdoc.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <loki4j.version>1.5.2</loki4j.version>
+        <testcontainers.version>1.20.6</testcontainers.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <!-- [SỬA 3] Thêm property version Lombok để dùng ở nhiều chỗ -->
+        <lombok.version>1.18.42</lombok.version>
+    </properties>
+
+    <!-- Centralized dependency versions -->
+    <dependencyManagement>
+        <dependencies>
+
+            <!-- Shared LearnHub library -->
+            <dependency>
+                <groupId>com.learnhub</groupId>
+                <artifactId>common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- OpenAPI / Swagger -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <!-- DTO mapping -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- JWT support -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+
+            <!-- Loki logging -->
+            <dependency>
+                <groupId>com.github.loki4j</groupId>
+                <artifactId>loki-logback-appender</artifactId>
+                <version>${loki4j.version}</version>
+            </dependency>
+
+            <!-- [SỬA 3] Override Lombok version để support Java 25
+                 Spring Boot Parent kéo theo Lombok cũ hơn, cần override ở đây -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
+
+            <!-- Integration testing -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- Shared dependencies for all modules -->
+    <dependencies>
+
+        <!-- Lombok — version được override trong dependencyManagement -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Testing framework -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- Shared plugin configuration -->
+    <build>
+        <pluginManagement>
+            <plugins>
+
+                <!-- Spring Boot packaging -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes>
+                            <!-- Exclude Lombok from artifact -->
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+
+                <!-- [SỬA 4] Java compilation — cập nhật cho Java 25 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <!-- Đổi source/target từ 21 lên 25 -->
+                        <source>25</source>
+                        <target>25</target>
+                        <compilerArgs>
+                            <!-- BẮT BUỘC từ Java 23+: javac mặc định tắt annotation
+                                 processing, phải bật lại thì Lombok và MapStruct mới hoạt động -->
+                            <arg>-proc:full</arg>
+                        </compilerArgs>
+                        <annotationProcessorPaths>
+                            <!-- Lombok processor — phải khai báo version tường minh
+                                 thay vì để Maven tự resolve, đảm bảo đúng 1.18.42 -->
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                            <!-- MapStruct processor -->
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+
+                <!-- Unit test execution -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <includes>
+                            <include>**/*Test.java</include>
+                        </includes>
+                    </configuration>
+                </plugin>
+
+                <!-- Integration test execution -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <includes>
+                            <include>**/*IT.java</include>
+                        </includes>
+                    </configuration>
+                </plugin>
+
+            </plugins>
+        </pluginManagement>
+    </build>
+
+</project>

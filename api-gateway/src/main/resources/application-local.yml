@@ -1,0 +1,20 @@
+# Override config cho môi trường local
+spring:
+  # datasource:
+  #   url: jdbc:postgresql://localhost:5432/{db-name}
+  #   username: learnhub
+  #   password: learnhub123
+
+  rabbitmq:
+    host: localhost
+
+  data:
+    redis:
+      host: localhost
+
+# Verbose logging khi dev
+logging:
+  level:
+    com.learnhub: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG

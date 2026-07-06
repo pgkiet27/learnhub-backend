@@ -1,0 +1,24 @@
+# Compiled output 
+target/
+*.class
+*.jar
+*.war
+
+# Environment variables — KHÔNG commit lên Git 
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
