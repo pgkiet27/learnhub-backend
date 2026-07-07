@@ -37,6 +37,8 @@
             <appender-ref ref="CONSOLE"/>
         </root>
         <logger name="com.learnhub" level="DEBUG"/>
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
     </springProfile>
 
     <!-- Profile production: log ra console VÀ gửi Loki -->
@@ -48,6 +50,7 @@
         <logger name="com.learnhub" level="INFO"/>
         <logger name="org.springframework.security" level="WARN"/>
         <logger name="org.hibernate" level="WARN"/>
+        <logger name="com.zaxxer.hikari" level="WARN"/>
     </springProfile>
 
 </configuration>

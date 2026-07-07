@@ -46,16 +46,32 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus
+        include: health, info, prometheus, metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      # always: hiện chi tiết DB connection, Redis, RabbitMQ status
+      # when-authorized: chỉ hiện khi đã auth (dùng production)
+      probes:
+        enabled: true
+        # Bật liveness và readiness probes cho Kubernetes
+  health:
+    rabbit:
+      enabled: true # Kiểm tra RabbitMQ connection
+    redis:
+      enabled: true # Kiểm tra Redis connection
+    db:
+      enabled: true # Kiểm tra PostgreSQL connection
   metrics:
     tags:
       application: ${spring.application.name}
   tracing:
     sampling:
       probability: 1.0
-    otlp:
-      tracing:
-        endpoint: ${JAEGER_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    tracing:
+      endpoint: ${JAEGER_ENDPOINT:http://localhost:4318/v1/traces}
 
 springdoc:
   api-docs:
@@ -67,5 +83,7 @@ logging:
   level:
     root: INFO
     com.learnhub: INFO
+    io.opentelemetry.exporter: WARN
+    # Tắt error log của OpenTelemetry exporter khi chưa có Jaeger (sẽ chỉnh lại sau)
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"

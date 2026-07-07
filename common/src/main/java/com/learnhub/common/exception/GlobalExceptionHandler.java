@@ -14,6 +14,7 @@ import org.springframework.web.context.request.WebRequest;
 import com.learnhub.common.dto.ApiResponse;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 // Centralized handling of all exceptions in the system
 @Slf4j
@@ -54,6 +55,28 @@ public class GlobalExceptionHandler {
                         "VALIDATION_FAILED",
                         "Request validation failed",
                         fieldErrors));
+    }
+
+    /**
+     * handle request to URL is not exists (404).
+     * Ex: browser call /favicon.ico for itself, or client call wrong URL.
+     * <p>
+     * Seperate to avoid log ERROR (only log DEBUG).
+     * Because this is normal behavior, not server error
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(
+            NoResourceFoundException ex) {
+
+        // Log DEBUG instead of ERROR — no need for alert
+        log.debug("Resource not found: {}", ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(
+                        "RESOURCE_NOT_FOUND",
+                        "The requested resource does not exist"
+                ));
     }
 
     // catch-all
