@@ -1,0 +1,26 @@
+# Build output
+target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Test files
+src/test/
+
+# Docker files itself
+Dockerfile
+.dockerignore
+
+# Environment files
+.env
+.env.local
