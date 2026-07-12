@@ -78,7 +78,9 @@ jobs:
         run: |
           mvn sonar:sonar \
             -pl payment-service \
+            -am \
             -Dsonar.projectKey=learnhub-payment \
+            -Dsonar.projectName="LearnHub Payment Service" \
             -B
 
       # step 7: Notify Discord when test failed

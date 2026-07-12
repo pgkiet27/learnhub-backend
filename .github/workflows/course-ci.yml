@@ -78,7 +78,9 @@ jobs:
         run: |
           mvn sonar:sonar \
             -pl course-service \
+            -am \
             -Dsonar.projectKey=learnhub-course \
+            -Dsonar.projectName="LearnHub Course Service" \
             -B
 
       # step 7: Notify Discord when test failed
