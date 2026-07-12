@@ -16,6 +16,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
     paths:
       - 'identity-service/**'
       - 'common/**'
