@@ -79,6 +79,7 @@ jobs:
           mvn sonar:sonar \
             -pl payment-service \
             -am \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
             -Dsonar.projectKey=learnhub-payment \
             -Dsonar.projectName="LearnHub Payment Service" \
             -B

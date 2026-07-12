@@ -79,6 +79,7 @@ jobs:
           mvn sonar:sonar \
             -pl user-service \
             -am \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
             -Dsonar.projectKey=learnhub-user \
             -Dsonar.projectName="LearnHub User Service" \
             -B
