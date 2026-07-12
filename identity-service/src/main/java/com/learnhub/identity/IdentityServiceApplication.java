@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 )
 @EnableScheduling  // turn on feature: scheduled tasks (cleanup expired tokens)
 public class IdentityServiceApplication {
-
+    // test
     public static void main(String[] args) {
         SpringApplication.run(IdentityServiceApplication.class, args);
     }
