@@ -65,7 +65,7 @@ jobs:
 
       # step 5: Run Integration Tests (needs Docker to run Testcontainers)
       - name: Run Integration Tests
-        run: mvn verify -pl identity-service -B -Pfailsafe
+        run: mvn verify -pl identity-service -B
         # Testcontainers automatically start PostgreSQL in Docker
         # GitHub Actions runner have Docker before
 

@@ -35,11 +35,11 @@ jobs:
     steps:
       # step 1: Checkout code from repo
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # step 2: install Java 25
       - name: Setup Java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'  # same distribution with Dockerfile
@@ -59,7 +59,7 @@ jobs:
 
       # step 5: Run Integration Tests (needs Docker to run Testcontainers)
       - name: Run Integration Tests
-        run: mvn verify -pl user-service -B -Pfailsafe
+        run: mvn verify -pl user-service -B
         # Testcontainers automatically start PostgreSQL in Docker
         # GitHub Actions runner have Docker before
 
