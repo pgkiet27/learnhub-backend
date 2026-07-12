@@ -79,6 +79,7 @@ jobs:
           mvn sonar:sonar \
             -pl course-service \
             -am \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
             -Dsonar.projectKey=learnhub-course \
             -Dsonar.projectName="LearnHub Course Service" \
             -B

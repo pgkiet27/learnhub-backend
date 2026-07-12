@@ -80,6 +80,7 @@ jobs:
           mvn sonar:sonar \
             -pl identity-service \
             -am \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
             -Dsonar.projectKey=learnhub-identity \
             -Dsonar.projectName="LearnHub Identity Service" \
             -B
