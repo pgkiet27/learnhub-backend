@@ -46,9 +46,14 @@ jobs:
           distribution: 'temurin'  # same distribution with Dockerfile
           cache: maven             # Cache Maven dependencies between runs
 
-      # step 3: Build common module first
-      # (identity-service depends on common)
-      - name: Build Common module
+      # Bước 3:
+      # Bước 3a: Install Parent POM into Maven cache
+      - name: Install Parent POM
+        run: mvn install -N -DskipTests -B
+        # -N: non-recursive, only install root POM, not build child modules
+
+      # Bước 3b: Install Common module
+      - name: Install Common module
         run: mvn clean install -pl common -DskipTests -B
 
       # step 4: Run Unit Tests
@@ -102,10 +107,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
