@@ -79,7 +79,9 @@ jobs:
         run: |
           mvn sonar:sonar \
             -pl identity-service \
+            -am \
             -Dsonar.projectKey=learnhub-identity \
+            -Dsonar.projectName="LearnHub Identity Service" \
             -B
 
       # step 7: Notify Discord when test failed
