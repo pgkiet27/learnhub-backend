@@ -108,6 +108,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test  # Depends on job 1
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      security-events: write  # Upload SARIF to Security tab is required
+      actions: read
+      contents: read
 
     steps:
       - name: Checkout code
@@ -150,9 +154,18 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
-          format: 'table'
-          exit-code: '0'  # 0: không fail build dù có vuln (1: fail nếu có CRITICAL)
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '0'
           severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: '${{ env.IMAGE_NAME }}'
+          # category: distinguish results of each service in Security tab
 
       # Push image to Docker Hub
       - name: Push Docker Image
