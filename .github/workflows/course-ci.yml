@@ -133,7 +133,7 @@ jobs:
           # DOCKERHUB_USERNAME: Docker Hub username
           # DOCKERHUB_TOKEN: Docker Hub access token (Settings → Security)
 
-      # Build and tag Docker image
+      # Build and tag Docker image.
       # Dùng -f để chỉ định Dockerfile, "." để context là thư mục gốc (mono-repo)
       # Dockerfile tự lo việc build JAR bên trong — không cần build JAR riêng
       # Tag với cả git SHA (bất biến) lẫn "latest" (convenient)
