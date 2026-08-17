@@ -22,3 +22,9 @@ logs/
 # Maven
 .mvn/wrapper/maven-wrapper.jar
 !.mvn/wrapper/maven-wrapper.properties
+
+# Others
+client_secret_580216887466-pg3vs3mnee92aedjlmd1queguqrkm17c.apps.googleusercontent.com.json
+learnhub-dev_accessKeys.csv
+
+application-local.yml

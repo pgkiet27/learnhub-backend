@@ -146,7 +146,7 @@ jobs:
             .
           # -f payment-service/Dockerfile: chỉ định Dockerfile trong service folder
           # "." ở cuối: context là thư mục gốc learnhub-backend/
-          # Docker thấy được mvnw, common/, identity-service/ và tất cả modules
+          # Docker thấy được mvnw, common/, payment-service/ và tất cả modules
 
       # Scan image to find vulnerabilities before pushing
       - name: Security Scan with Trivy
@@ -182,7 +182,7 @@ jobs:
 
           # Update image tag in values.yaml
           sed -i "s|tag: .*|tag: ${{ github.sha }}|g" \
-            helm-charts/identity-service/values.yaml
+            helm-charts/payment-service/values.yaml
 
           # Commit and push
           git config user.email "ci@learnhub.vn"

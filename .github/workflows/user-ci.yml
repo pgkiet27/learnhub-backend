@@ -146,7 +146,7 @@ jobs:
             .
           # -f user-service/Dockerfile: chỉ định Dockerfile trong service folder
           # "." ở cuối: context là thư mục gốc learnhub-backend/
-          # Docker thấy được mvnw, common/, identity-service/ và tất cả modules
+          # Docker thấy được mvnw, common/, user-service/ và tất cả modules
 
       # Scan image to find vulnerabilities before pushing
       - name: Security Scan with Trivy
@@ -182,13 +182,13 @@ jobs:
 
           # Update image tag in values.yaml
           sed -i "s|tag: .*|tag: ${{ github.sha }}|g" \
-            helm-charts/identity-service/values.yaml
+            helm-charts/user-service/values.yaml
 
           # Commit and push
           git config user.email "ci@learnhub.vn"
           git config user.name "LearnHub CI"
-          git add helm-charts/identity-service/values.yaml
-          git commit -m "ci: update identity-service image to ${{ github.sha }}"
+          git add helm-charts/user-service/values.yaml
+          git commit -m "ci: update user-service image to ${{ github.sha }}"
           git push
 
       # Notify Discord when deploy success
@@ -198,7 +198,7 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_CICD }}
           status: success
-          title: "✅ Identity Service — Build & Push Success"
+          title: "✅ User Service — Build & Push Success"
           description: |
             **Image:** `${{ env.IMAGE_NAME }}:${{ github.sha }}`
             **Branch:** ${{ github.ref_name }}
@@ -212,7 +212,7 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK_CICD }}
           status: failure
-          title: "❌ Identity Service — Build/Push Failed"
+          title: "❌ User Service — Build/Push Failed"
           description: |
             **Branch:** ${{ github.ref_name }}
             **By:** ${{ github.actor }}

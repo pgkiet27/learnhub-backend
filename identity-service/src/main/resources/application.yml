@@ -2,6 +2,14 @@ spring:
   application:
     name: identity-service
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Cognito tự cung cấp JWKS endpoint để verify JWT signature
+          jwk-set-uri: ${COGNITO_JWK_SET_URI:https://cognito-idp.ap-southeast-1.amazonaws.com/${cognito.user-pool-id}/.well-known/jwks.json}
+          issuer-uri: ${COGNITO_ISSUER_URI:https://cognito-idp.ap-southeast-1.amazonaws.com/${cognito.user-pool-id}}
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/identity_db?options=-c+TimeZone%3DUTC}
     username: ${DB_USER:learnhub}
@@ -87,3 +95,15 @@ logging:
     # Tắt error log của OpenTelemetry exporter khi chưa có Jaeger (sẽ chỉnh lại sau)
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
+
+# Custom Cognito properties
+cognito:
+  user-pool-id: ${COGNITO_USER_POOL_ID:ap-southeast-1_xxxxxxxxx}
+  client-id: ${COGNITO_CLIENT_ID:xxxxxxxxxxxxxxxxxxxxxxxxxx}
+  client-secret: ${COGNITO_CLIENT_SECRET:xxxx}
+  region: ${COGNITO_REGION:ap-southeast-1}
+
+jwt:
+  secret: ${JWT_SECRET:learnhub-super-secret-key-change-in-production-must-be-256-bits}
+  access-token-expiry: 3600      # 1 hour (seconds)
+  refresh-token-expiry: 2592000  # 30 days (seconds)
