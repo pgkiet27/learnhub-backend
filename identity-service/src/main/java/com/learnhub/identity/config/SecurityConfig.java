@@ -39,17 +39,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // public endpoints that don't require authentication
                         .requestMatchers(
-                                "api/v1/health",
-                                "actuator/**",
-                                "swagger-ui/**",
-                                "v3/api-docs/**"
+                                "/api/v1/health",
+                                "/actuator/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/api-docs/**"
                         ).permitAll()
                         // auth endpoints - need Cognito authentication
-                        .requestMatchers(HttpMethod.POST, "api/v1/auth/sync").authenticated()
-                        .requestMatchers(HttpMethod.POST, "api/v1/auth/refresh").permitAll()
-                        .requestMatchers(HttpMethod.POST, "api/v1/auth/logout").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/sync").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         // admin only
-                        .requestMatchers("api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // all other endpoints require authentication
                         .anyRequest().authenticated()
                 );

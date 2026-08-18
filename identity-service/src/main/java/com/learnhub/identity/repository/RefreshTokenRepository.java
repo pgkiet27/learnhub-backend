@@ -21,6 +21,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     
     // delete all expired refresh tokens (cleanup task)
     @Modifying
-    @Query("DELETE FROM RefreshToken rt WHERE rt.expiryDate < :now")
+    @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt < :now")
     void deleteExpiredTokens(Instant now);
 }

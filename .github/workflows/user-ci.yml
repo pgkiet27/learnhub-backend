@@ -67,6 +67,11 @@ jobs:
         run: mvn verify -pl user-service -B
         # Testcontainers automatically start PostgreSQL in Docker
         # GitHub Actions runner have Docker before
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          # Testcontainers need Docker - GitHub Actions runner have it own Docker
+          # RYUK is cleanup container - disable in CI to avoid permission issues
+          TESTCONTAINERS_RYUK_DISABLED: true
 
       # Bước 6: SonarQube analysis (code quality)
       - name: SonarQube Analysis

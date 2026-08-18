@@ -9,7 +9,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <!-- [SỬA 1] Nâng từ 3.3.4 lên 3.4.5 để support Java 25 tốt hơn -->
+        <!-- [FIX 1] Upgrade from 3.3.4 to 3.4.5 to better support Java 25 -->
         <version>3.4.5</version>
         <relativePath/>
     </parent>
@@ -35,7 +35,7 @@
 
     <!-- Shared properties -->
     <properties>
-        <!-- [SỬA 2] Đổi từ 21 lên 25 cho khớp với Java đang dùng -->
+        <!-- [FIX 2] Change from 21 to 25 to match the Java version in use -->
         <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -43,9 +43,9 @@
         <springdoc.version>2.8.9</springdoc.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <loki4j.version>1.5.2</loki4j.version>
-        <testcontainers.version>1.20.6</testcontainers.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <!-- [SỬA 3] Thêm property version Lombok để dùng ở nhiều chỗ -->
+        <!-- [FIX 3] Add Lombok version property for reuse in multiple places -->
         <lombok.version>1.18.42</lombok.version>
     </properties>
 
@@ -100,8 +100,8 @@
                 <version>${loki4j.version}</version>
             </dependency>
 
-            <!-- [SỬA 3] Override Lombok version để support Java 25
-                 Spring Boot Parent kéo theo Lombok cũ hơn, cần override ở đây -->
+            <!-- [FIX 3] Override Lombok version to support Java 25
+                 Spring Boot Parent pulls in an older Lombok, need to override it here -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
@@ -123,7 +123,7 @@
     <!-- Shared dependencies for all modules -->
     <dependencies>
 
-        <!-- Lombok — version được override trong dependencyManagement -->
+        <!-- Lombok — version overridden in dependencyManagement -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -159,22 +159,22 @@
                     </configuration>
                 </plugin>
 
-                <!-- [SỬA 4] Java compilation — cập nhật cho Java 25 -->
+                <!-- [FIX 4] Java compilation — updated for Java 25 -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
-                        <!-- Đổi source/target từ 21 lên 25 -->
+                        <!-- Change source/target from 21 to 25 -->
                         <source>25</source>
                         <target>25</target>
                         <compilerArgs>
-                            <!-- BẮT BUỘC từ Java 23+: javac mặc định tắt annotation
-                                 processing, phải bật lại thì Lombok và MapStruct mới hoạt động -->
+                            <!-- REQUIRED from Java 23+: javac disables annotation
+                                 processing by default; must re-enable it for Lombok and MapStruct to work -->
                             <arg>-proc:full</arg>
                         </compilerArgs>
                         <annotationProcessorPaths>
-                            <!-- Lombok processor — phải khai báo version tường minh
-                                 thay vì để Maven tự resolve, đảm bảo đúng 1.18.42 -->
+                            <!-- Lombok processor — must declare the version explicitly
+                                 instead of letting Maven resolve it, to guarantee 1.18.42 -->
                             <path>
                                 <groupId>org.projectlombok</groupId>
                                 <artifactId>lombok</artifactId>
@@ -198,6 +198,9 @@
                         <includes>
                             <include>**/*Test.java</include>
                         </includes>
+                        <!-- Mockito's bundled Byte Buddy only officially supports up to Java 24;
+                             this flag lets it instrument classes on Java 25 in experimental mode -->
+                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                     </configuration>
                 </plugin>
 

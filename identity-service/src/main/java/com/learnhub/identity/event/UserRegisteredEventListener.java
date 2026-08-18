@@ -30,7 +30,7 @@ public class UserRegisteredEventListener {
     public void onUserRegistered(UserRegisteredEvent event) {
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.EXCHANGE_NAME,
-                "user_registered",
+                "user.registered",
                 event
         );
         log.info("Published UserRegisteredEvent for user {}", event.getEmail());
