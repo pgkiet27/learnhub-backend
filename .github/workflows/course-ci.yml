@@ -16,6 +16,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
     paths:
       - 'course-service/**'
       - 'common/**'
@@ -65,6 +66,9 @@ jobs:
       # step 5: Run Integration Tests (needs Docker to run Testcontainers)
       - name: Run Integration Tests
         run: mvn verify -pl course-service -B
+        env:
+          # Disable Ryuk reaper container to avoid flakiness on CI runners
+          TESTCONTAINERS_RYUK_DISABLED: true
         # Testcontainers automatically start PostgreSQL in Docker
         # GitHub Actions runner have Docker before
 

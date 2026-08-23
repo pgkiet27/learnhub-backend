@@ -220,6 +220,10 @@
                         <includes>
                             <include>**/*IT.java</include>
                         </includes>
+                        <!-- Same as surefire — Mockito's bundled Byte Buddy only officially
+                             supports up to Java 24; needed here too since integration tests
+                             (e.g. CourseApprovalIT) also use @MockitoBean -->
+                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                     </configuration>
                 </plugin>
 
