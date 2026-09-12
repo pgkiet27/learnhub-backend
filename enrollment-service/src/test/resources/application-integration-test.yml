@@ -1,0 +1,16 @@
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+services:
+  course:
+    base-url: http://localhost:9999
+
+logging:
+  level:
+    com.learnhub: DEBUG
+    org.flywaydb: DEBUG

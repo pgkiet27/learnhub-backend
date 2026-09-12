@@ -14,7 +14,7 @@ spring:
 
   jpa:
     hibernate:
-      # validate: Hibernate chỉ kiểm tra schema, Flyway quản lý schema
+      # validate: Hibernate only checks the schema, Flyway manages it
       ddl-auto: validate
     show-sql: false
     properties:
@@ -52,18 +52,18 @@ management:
   endpoint:
     health:
       show-details: always
-      # always: hiện chi tiết DB connection, Redis, RabbitMQ status
-      # when-authorized: chỉ hiện khi đã auth (dùng production)
+      # always: shows DB connection, Redis, RabbitMQ status in detail
+      # when-authorized: only shown once authenticated (used in production)
       probes:
         enabled: true
-        # Bật liveness và readiness probes cho Kubernetes
+        # Enable liveness and readiness probes for Kubernetes
   health:
     rabbit:
-      enabled: true # Kiểm tra RabbitMQ connection
+      enabled: true # Check RabbitMQ connection
     redis:
-      enabled: true # Kiểm tra Redis connection
+      enabled: true # Check Redis connection
     db:
-      enabled: true # Kiểm tra PostgreSQL connection
+      enabled: true # Check PostgreSQL connection
   metrics:
     tags:
       application: ${spring.application.name}
@@ -86,3 +86,7 @@ logging:
     com.learnhub: INFO
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
+
+services:
+  course:
+    base-url: ${COURSE_SERVICE_URL:http://localhost:8083}
