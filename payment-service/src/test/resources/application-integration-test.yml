@@ -1,0 +1,24 @@
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+services:
+  course:
+    base-url: http://localhost:9999   # not actually used
+
+# Fake values — StripeConfig needs this property to avoid an error when the Spring context
+# starts up, but no Integration Test actually calls Stripe for real (Step 6 mocks
+# Event/PaymentIntent directly, never touching the network)
+stripe:
+  secret-key: sk_test_dummy_for_context_load_only
+  webhook-secret: whsec_dummy_for_context_load_only
+  currency: usd
+
+logging:
+  level:
+    com.learnhub: DEBUG
+    org.flywaydb: DEBUG

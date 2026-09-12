@@ -14,7 +14,20 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                .authorizeHttpRequests(auth -> auth
+                        // Public
+                        .requestMatchers(
+                                "/actuator/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/api-docs/**",
+                                "/v3/api-docs/**",
+                                "/api/v1/payments/webhook/stripe"   // Stripe calls this directly — authenticated via signature, not JWT
+                        ).permitAll()
+                        // Admin only
+                        .requestMatchers("/api/v1/admin/**").hasRole("admin")
+                        .anyRequest().authenticated()
+                );
 
         return http.build();
     }

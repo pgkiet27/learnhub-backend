@@ -16,6 +16,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
     paths:
       - 'payment-service/**'
       - 'common/**'
@@ -65,13 +66,16 @@ jobs:
       # step 5: Run Integration Tests (needs Docker to run Testcontainers)
       - name: Run Integration Tests
         run: mvn verify -pl payment-service -B
+        env:
+          SPRING_PROFILES_ACTIVE: integration-test
+          TESTCONTAINERS_RYUK_DISABLED: true
         # Testcontainers automatically start PostgreSQL in Docker
         # GitHub Actions runner have Docker before
 
       # Bước 6: SonarQube analysis (code quality)
       - name: SonarQube Analysis
         # only run when push into main (not run for all PR)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

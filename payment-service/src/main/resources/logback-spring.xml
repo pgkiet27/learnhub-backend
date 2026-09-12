@@ -8,15 +8,15 @@
     <springProperty scope="context" name="LOKI_URL"
                     source="loki.url" defaultValue="http://localhost:3100"/>
 
-    <!-- Console Appender — log ra terminal -->
+    <!-- Console Appender — logs to the terminal -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <!-- %X{traceId}: trace ID từ OpenTelemetry để correlate với Jaeger -->
+            <!-- %X{traceId}: trace ID from OpenTelemetry to correlate with Jaeger -->
             <pattern>%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Loki Appender — gửi logs đến Loki -->
+    <!-- Loki Appender — ships logs to Loki -->
     <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <http>
             <url>${LOKI_URL}/loki/api/v1/push</url>
@@ -31,7 +31,7 @@
         </format>
     </appender>
 
-    <!-- Profile local: chỉ log ra console -->
+    <!-- local profile: log to console only -->
     <springProfile name="local">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
@@ -41,7 +41,7 @@
         <logger name="org.hibernate.SQL" level="DEBUG"/>
     </springProfile>
 
-    <!-- Profile production: log ra console VÀ gửi Loki -->
+    <!-- production profile: log to console AND ship to Loki -->
     <springProfile name="production">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
