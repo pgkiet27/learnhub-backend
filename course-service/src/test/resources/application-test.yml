@@ -1,0 +1,43 @@
+# Dùng cho unit tests — không cần infrastructure thật
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;NON_KEYWORDS=value
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+  flyway:
+    enabled: false        # Tắt Flyway, H2 tự tạo schema từ entities
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: https://example.com/.well-known/jwks.json
+
+aws:
+  region: ap-southeast-1
+  s3:
+    bucket-name: test-bucket
+    presigned-url-expiry: 900
+    max-file-size-mb: 500
+  credentials:
+    access-key-id: test-key
+    secret-access-key: test-secret
+
+logging:
+  level:
+    root: WARN
+    com.learnhub: DEBUG
