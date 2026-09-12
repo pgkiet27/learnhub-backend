@@ -87,3 +87,13 @@ logging:
     com.learnhub: INFO
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
+
+aws:
+  region: ${AWS_REGION:ap-southeast-1}
+  s3:
+    bucket-name: ${AWS_S3_BUCKET:learnhub-media-abc123}
+    presigned-url-expiry: 900  # 15 mins (secs)
+    max-file-size-mb: 500      # maximum 500MB for video
+  credentials:
+    access-key-id: ${AWS_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
