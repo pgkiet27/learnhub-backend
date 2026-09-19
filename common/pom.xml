@@ -36,6 +36,13 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!-- Spring Security Web — GatewayAuthenticationFilter (optional: each service already has security) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Spring Data Commons  -->
         <dependency>
             <groupId>org.springframework.data</groupId>

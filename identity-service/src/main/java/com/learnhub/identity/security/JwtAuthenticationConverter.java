@@ -27,9 +27,12 @@ public class JwtAuthenticationConverter implements Converter<Jwt, AbstractAuthen
     }
 
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
-        // Cognito save role in custom attribute "custom:role" or groups
-        // we will get the role from DB after sync user
-        // for now, we will just return ROLE_USER for all authenticated users
-        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        // LearnHub access tokens carry the role (student / instructor / admin, lowercase) in the "role" claim,
+        // so hasRole("admin") works. Cognito tokens (only used by /auth/sync) have no such claim.
+        String role = jwt.getClaimAsString("role");
+        if (role == null || role.isBlank()) {
+            return List.of(new SimpleGrantedAuthority("ROLE_user"));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.trim().toLowerCase()));
     }
 }

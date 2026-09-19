@@ -8,7 +8,7 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_DB: identity_db
+      POSTGRES_DB: identity_dbap
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata # place data was saved
@@ -16,7 +16,7 @@ services:
       - identity-db-data:/var/lib/postgresql/data
     healthcheck:
       # check if postgres is ready to receive connections
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d identity_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d identity_db" ]
       interval: 10s   # check every 10s
       timeout: 5s     # timeout after 5s if not response
       retries: 5      # try again 5 times before notice unhealthy status
@@ -38,7 +38,7 @@ services:
     volumes:
       - user-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d user_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d user_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,7 +60,7 @@ services:
     volumes:
       - course-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d course_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d course_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,7 +82,7 @@ services:
     volumes:
       - enrollment-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d enrollment_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d enrollment_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -104,7 +104,7 @@ services:
     volumes:
       - payment-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d payment_db"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d payment_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -126,7 +126,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       # redis-cli ping → Redis returns "PONG" if healthy
       interval: 10s
       timeout: 5s
@@ -150,7 +150,7 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 15s
       timeout: 10s
       retries: 5

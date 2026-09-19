@@ -2,6 +2,9 @@ spring:
   application:
     name: identity-service
 
+  config:
+    import: optional:file:./.env[.properties]
+
   security:
     oauth2:
       resourceserver:

@@ -23,7 +23,7 @@ public class AdminController {
      * Admin change role to user
      */
     @Operation(summary = "Change role for user (Admin only)")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @PutMapping("/users/{userId}/role")
     public ResponseEntity<ApiResponse<UserResponse>> updateRole(
             @PathVariable UUID userId,
