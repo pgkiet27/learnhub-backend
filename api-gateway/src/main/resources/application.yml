@@ -2,45 +2,61 @@ spring:
   application:
     name: api-gateway
 
-  # datasource:
-  #   url: ${DB_URL:jdbc:postgresql://localhost:5432/{db-name}}
-  #   username: ${DB_USER:learnhub}
-  #   password: ${DB_PASSWORD:learnhub123}
-  #   driver-class-name: org.postgresql.Driver
-  #   hikari:
-  #     maximum-pool-size: 10
-  #     minimum-idle: 2
-
-  jpa:
-    hibernate:
-      # validate: Hibernate chỉ kiểm tra schema, Flyway quản lý schema
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+  config:
+    import: optional:file:./.env[.properties]
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - ${FRONTEND_URL:http://localhost:3000}
+            allowedMethods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+
+      routes:
+        - id: identity-service
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/auth/**,/api/v1/admin/users/**
+
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/users/**
+
+        # /api/v1/internal/** (service-to-service) is intentionally NOT routed
+        - id: course-service
+          uri: ${COURSE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/categories/**,/api/v1/coupons/**,/api/v1/courses/**,/api/v1/lessons/**,/api/v1/questions/**,/api/v1/answers/**,/api/v1/admin/courses/**
+
+        - id: enrollment-service
+          uri: ${ENROLLMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/enrollments/**,/api/v1/my-learning/**
+
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/payments/**,/api/v1/admin/payments/**
+
 server:
   port: 8080
+
+gateway:
+  jwt:
+    # Must be the same secret identity-service uses to sign LearnHub access tokens
+    secret: ${JWT_SECRET:learnhub-super-secret-key-change-in-production-must-be-256-bits}
 
 management:
   endpoints:
@@ -50,12 +66,6 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-
-springdoc:
-  api-docs:
-    path: /api-docs
-  swagger-ui:
-    path: /swagger-ui.html
 
 logging:
   level:
