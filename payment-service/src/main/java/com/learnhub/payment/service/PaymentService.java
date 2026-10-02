@@ -17,8 +17,11 @@ import com.learnhub.payment.entity.Payment;
 import com.learnhub.payment.entity.Refund;
 import com.learnhub.payment.repository.PaymentRepository;
 import com.learnhub.payment.repository.RefundRepository;
+import com.stripe.Stripe;
+import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.RefundCreateParams;
@@ -168,10 +171,28 @@ public class PaymentService {
                 );
     }
 
+    /**
+     * getObject() is empty whenever the event's api_version differs from the one this
+     * stripe-java release is pinned to (Stripe.API_VERSION). Events are sent with the account's
+     * default API version, which moves forward independently of the SDK, so that mismatch is
+     * the normal case — not an error. Fall back to deserializeUnsafe(): the only field read from
+     * the PaymentIntent is its id, which is stable across API versions.
+     */
     private PaymentIntent extractPaymentIntent(Event event) {
-        return (PaymentIntent) event.getDataObjectDeserializer().getObject()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Could not deserialize PaymentIntent from event " + event.getId()));
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+
+        if (deserializer.getObject().isPresent()) {
+            return (PaymentIntent) deserializer.getObject().get();
+        }
+
+        log.debug("Stripe event {} uses API version {} (SDK pinned to {}), deserializing unsafely",
+                event.getId(), event.getApiVersion(), Stripe.API_VERSION);
+        try {
+            return (PaymentIntent) deserializer.deserializeUnsafe();
+        } catch (EventDataObjectDeserializationException e) {
+            throw new IllegalStateException(
+                    "Could not deserialize PaymentIntent from event " + event.getId(), e);
+        }
     }
 
     private void publishPaymentSuccessEvent(Payment payment) {

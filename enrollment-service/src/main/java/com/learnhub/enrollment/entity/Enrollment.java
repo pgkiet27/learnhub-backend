@@ -61,6 +61,19 @@ public class Enrollment {
     @Column(name = "last_accessed_at")
     private Instant lastAccessedAt;
 
+    @Column(name = "churn_score", precision = 5, scale = 4)
+    private BigDecimal churnScore;
+
+    // low | medium | high, as returned by ai-service
+    @Column(name = "churn_risk_level", length = 10)
+    private String churnRiskLevel;
+
+    @Column(name = "churn_predicted_at")
+    private Instant churnPredictedAt;
+
+    @Column(name = "churn_reminded_at")
+    private Instant churnRemindedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

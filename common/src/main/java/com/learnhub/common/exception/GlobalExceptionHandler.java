@@ -1,20 +1,19 @@
 package com.learnhub.common.exception;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.learnhub.common.dto.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
-
-import com.learnhub.common.dto.ApiResponse;
-
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.util.HashMap;
+import java.util.Map;
 
 // Centralized handling of all exceptions in the system
 @Slf4j
@@ -55,6 +54,34 @@ public class GlobalExceptionHandler {
                         "VALIDATION_FAILED",
                         "Request validation failed",
                         fieldErrors));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex) {
+
+        String expectedType = ex.getRequiredType() == null
+                ? "the expected type"
+                : ex.getRequiredType().getSimpleName();
+
+        log.warn("Invalid value for parameter '{}': {}", ex.getName(), ex.getValue());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        "INVALID_PARAMETER",
+                        "Invalid value for '%s': expected %s".formatted(ex.getName(), expectedType)));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
+            IllegalArgumentException ex) {
+
+        log.warn("Invalid request argument: {}", ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("INVALID_PARAMETER", ex.getMessage()));
     }
 
     /**

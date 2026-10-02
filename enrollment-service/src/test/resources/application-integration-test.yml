@@ -10,6 +10,10 @@ services:
   course:
     base-url: http://localhost:9999
 
+churn:
+  job:
+    enabled: false
+
 logging:
   level:
     com.learnhub: DEBUG

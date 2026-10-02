@@ -1,7 +1,9 @@
 package com.learnhub.identity.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 
 @Data
 @Builder
@@ -17,6 +19,10 @@ public class AuthResponse {
         private String id;
         private String email;
         private String role;
+        // Lombok strips the "is" prefix from boolean getters, so Jackson would emit
+        // "emailVerified"; pin the JSON name the frontend expects. Must go on the generated
+        // getter: on the field it would be serialized in addition to "emailVerified".
+        @Getter(onMethod_ = @JsonProperty("isEmailVerified"))
         private boolean isEmailVerified;
 
     }

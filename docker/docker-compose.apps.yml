@@ -1,0 +1,363 @@
+# Application stack: 7 Spring services + ai-service (Python) + API gateway, on top of the infrastructure defined in
+# docker-compose.yml (Postgres x5 + pgvector, Redis, RabbitMQ). The frontend is NOT part of this stack:
+# run it on the host with `npm run dev` (it reaches the gateway at http://localhost:8080).
+#
+# Run from backend/docker (same directory => same compose project "docker" and same .env):
+#   docker compose -f docker-compose.apps.yml up -d --build
+#   docker compose -f docker-compose.apps.yml logs -f identity-service
+#   docker compose -f docker-compose.apps.yml down            # add -v to also wipe DB volumes
+#
+# Optional Stripe webhook forwarding (needs STRIPE_SECRET_KEY in docker/.env):
+#   docker compose -f docker-compose.apps.yml --profile stripe up -d stripe-cli
+#
+# Inside the compose network services reach each other by service name (redis, rabbitmq,
+# identity-db, ...) and by the container-internal port — NOT localhost / host-mapped ports.
+# Secrets stay in the existing backend/<service>/.env files; they are passed at runtime with
+# env_file and are never baked into an image.
+
+include:
+  - docker-compose.yml
+
+# Settings shared by every Spring service. Entries in `environment:` override the same keys from
+# env_file, so the localhost values in each service's .env are replaced by the container hostnames.
+x-infra-env: &infra-env
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+  DB_USER: ${POSTGRES_USER}
+  DB_PASSWORD: ${POSTGRES_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: ${RABBITMQ_USER}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+  JAEGER_ENDPOINT: http://jaeger:4318/v1/traces
+
+x-infra-depends-on: &infra-depends-on
+  redis:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+
+services:
+
+  # ── Application services ────────────────────────────────────────────────
+
+  identity-service:
+    build:
+      context: ..
+      dockerfile: identity-service/Dockerfile
+    image: learnhub/identity-service:local
+    container_name: learnhub-identity-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    env_file:
+      - path: ../identity-service/.env   # Cognito, JWT, ...
+        required: false
+    environment:
+      <<: *infra-env
+      DB_URL: jdbc:postgresql://identity-db:5432/identity_db?options=-c+TimeZone%3DUTC
+      JWT_SECRET: ${JWT_SECRET}          # must be identical to api-gateway's
+    depends_on:
+      <<: *infra-depends-on
+      identity-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8081/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - learnhub-network
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: user-service/Dockerfile
+    image: learnhub/user-service:local
+    container_name: learnhub-user-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    env_file:
+      - path: ../user-service/.env
+        required: false
+    environment:
+      <<: *infra-env
+      DB_URL: jdbc:postgresql://user-db:5432/user_db
+    depends_on:
+      <<: *infra-depends-on
+      user-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8082/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - learnhub-network
+
+  course-service:
+    build:
+      context: ..
+      dockerfile: course-service/Dockerfile
+    image: learnhub/course-service:local
+    container_name: learnhub-course-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    env_file:
+      - path: ../course-service/.env     # AWS_PROFILE / AWS_REGION / AWS_S3_BUCKET
+        required: false
+    environment:
+      <<: *infra-env
+      DB_URL: jdbc:postgresql://course-db:5432/course_db
+    volumes:
+      # AWS IAM Identity Center (SSO): the SDK reads the profile from ~/.aws/config and the SSO
+      # token from ~/.aws/sso/cache, where "~" is the container user's home (/home/learnhub).
+      # Log in on the HOST with `aws sso login --profile <AWS_PROFILE>`; the container sees the
+      # refreshed token immediately. Keep it read-write: the SDK may write back a refreshed token.
+      # Override the location with AWS_DIR if your .aws folder is elsewhere.
+      - ${AWS_DIR:-~/.aws}:/home/learnhub/.aws
+    depends_on:
+      <<: *infra-depends-on
+      course-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8083/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - learnhub-network
+
+  enrollment-service:
+    build:
+      context: ..
+      dockerfile: enrollment-service/Dockerfile
+    image: learnhub/enrollment-service:local
+    container_name: learnhub-enrollment-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    env_file:
+      - path: ../enrollment-service/.env
+        required: false
+    environment:
+      <<: *infra-env
+      DB_URL: jdbc:postgresql://enrollment-db:5432/enrollment_db
+      COURSE_SERVICE_URL: http://course-service:8083
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      AI_SERVICE_URL: http://ai-service:8000
+      ASSESSMENT_SERVICE_URL: http://assessment-service:8087
+    depends_on:
+      <<: *infra-depends-on
+      enrollment-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8084/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - learnhub-network
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: payment-service/Dockerfile
+    image: learnhub/payment-service:local
+    container_name: learnhub-payment-service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    env_file:
+      - path: ../payment-service/.env    # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+        required: false
+    environment:
+      <<: *infra-env
+      DB_URL: jdbc:postgresql://payment-db:5432/payment_db
+      COURSE_SERVICE_URL: http://course-service:8083
+    depends_on:
+      <<: *infra-depends-on
+      payment-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8085/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - learnhub-network
+
+  assessment-service:
+    build:
+      context: ..
+      dockerfile: assessment-service/Dockerfile
+    image: learnhub/assessment-service:local
+    container_name: learnhub-assessment-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://assessment-db:5432/assessment_db
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JAEGER_ENDPOINT: http://jaeger:4318/v1/traces
+      COURSE_SERVICE_URL: http://course-service:8083
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8084
+    depends_on:
+      assessment-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8087/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - learnhub-network
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: notification-service/Dockerfile
+    image: learnhub/notification-service:local
+    container_name: learnhub-notification-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    env_file:
+      - path: ../notification-service/.env   # real SMTP credentials (MAIL_HOST, MAIL_USERNAME, ...)
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      JAEGER_ENDPOINT: http://jaeger:4318/v1/traces
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      FRONTEND_URL: http://localhost:3000
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8086/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - learnhub-network
+
+  # Python (FastAPI) — own build context, so ai-service/.dockerignore applies
+  ai-service:
+    build:
+      context: ../ai-service
+    image: learnhub/ai-service:local
+    container_name: learnhub-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ../ai-service/.env         # GEMINI_API_KEY, LLM_PROVIDER, ...
+        required: false
+    environment:
+      DATABASE_URL: postgresql://ai_user:ai_password@ai-db:5432/ai_db
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8084
+      COURSE_DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@course-db:5432/course_db
+    depends_on:
+      ai-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\"" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - learnhub-network
+
+  # ── Edge ────────────────────────────────────────────────────────────────
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: api-gateway/Dockerfile
+    image: learnhub/api-gateway:local
+    container_name: learnhub-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      JWT_SECRET: ${JWT_SECRET}          # must be identical to identity-service's
+      FRONTEND_URL: http://localhost:3000  # CORS origin = the URL the browser uses
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      COURSE_SERVICE_URL: http://course-service:8083
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8084
+      PAYMENT_SERVICE_URL: http://payment-service:8085
+      AI_SERVICE_URL: http://ai-service:8000
+      ASSESSMENT_SERVICE_URL: http://assessment-service:8087
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - learnhub-network
+
+  # ── Observability / tooling ─────────────────────────────────────────────
+
+  # Receives the OpenTelemetry traces the services export (removes the localhost:4318 errors).
+  # UI: http://localhost:16686
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: learnhub-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # UI
+      - "4318:4318"     # OTLP/HTTP (for services still run directly on the host)
+    networks:
+      - learnhub-network
+
+  # Catches every email sent by notification-service (nothing leaves the machine). UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: learnhub-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web UI
+      - "1025:1025"   # SMTP (for services run directly on the host)
+    networks:
+      - learnhub-network
+
+  # Forwards Stripe test-mode events to payment-service (Stripe can't reach localhost otherwise).
+  # First get the signing secret and put it in backend/payment-service/.env as STRIPE_WEBHOOK_SECRET:
+  #   docker compose -f docker-compose.apps.yml run --rm stripe-cli listen --print-secret
+  stripe-cli:
+    profiles: [ "stripe" ]
+    image: stripe/stripe-cli:latest
+    container_name: learnhub-stripe-cli
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    command: [ "listen", "--forward-to", "http://payment-service:8085/api/v1/payments/webhook/stripe" ]
+    depends_on:
+      - payment-service
+    networks:
+      - learnhub-network

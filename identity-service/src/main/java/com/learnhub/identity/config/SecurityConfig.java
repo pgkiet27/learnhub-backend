@@ -45,6 +45,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/api-docs/**"
                         ).permitAll()
+                        // service-to-service, not routed by the API Gateway
+                        .requestMatchers("/api/v1/internal/**").permitAll()
                         // auth endpoints - need Cognito authentication
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/sync").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()

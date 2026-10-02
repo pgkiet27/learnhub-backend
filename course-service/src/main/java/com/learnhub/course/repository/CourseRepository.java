@@ -82,4 +82,25 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
             @Param("instructorId") UUID instructorId);
 
     List<Course> findTop10ByStatusOrderByTotalStudentsDesc(Course.Status status);
+
+    /**
+     * Course count per category, in a single query — used to fill CategoryResponse.courseCount
+     * for the whole category list instead of running one COUNT per category.
+     * Categories with no course are simply absent from the result.
+     */
+    @Query("""
+            SELECT c.category.id AS categoryId, COUNT(c) AS total
+            FROM Course c
+            WHERE c.status = :status AND c.category IS NOT NULL
+            GROUP BY c.category.id
+            """)
+    List<CategoryCourseCount> countByCategoryGroupedByCategory(
+            @Param("status") Course.Status status);
+
+    /** Projection for {@link #countByCategoryGroupedByCategory}. */
+    interface CategoryCourseCount {
+        UUID getCategoryId();
+
+        long getTotal();
+    }
 }

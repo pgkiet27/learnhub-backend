@@ -2,6 +2,7 @@ package com.learnhub.course.controller;
 
 import com.learnhub.common.dto.ApiResponse;
 import com.learnhub.course.dto.request.CreateLessonRequest;
+import com.learnhub.course.dto.request.UpdateTranscriptRequest;
 import com.learnhub.course.dto.response.LessonResponse;
 import com.learnhub.course.service.LessonService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -49,6 +50,20 @@ public class LessonController {
         LessonResponse lesson = lessonService.updateLessonMediaUrl(
                 lessonId, videoUrl, videoDuration, instructorId);
         return ResponseEntity.ok(ApiResponse.success(lesson, "Cập nhật media thành công"));
+    }
+
+    @Operation(summary = "Cập nhật transcript bài học")
+    @PutMapping("/{lessonId}/transcript")
+    public ResponseEntity<ApiResponse<LessonResponse>> updateTranscript(
+            @PathVariable UUID courseId,
+            @PathVariable UUID sectionId,
+            @PathVariable UUID lessonId,
+            @RequestBody @Valid UpdateTranscriptRequest request,
+            @RequestHeader("X-User-Id") UUID instructorId) {
+
+        LessonResponse lesson = lessonService.updateTranscript(
+                lessonId, request.getTranscript(), instructorId);
+        return ResponseEntity.ok(ApiResponse.success(lesson, "Cập nhật transcript thành công"));
     }
 
     @Operation(summary = "Publish bài học")

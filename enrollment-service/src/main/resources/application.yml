@@ -93,3 +93,19 @@ logging:
 services:
   course:
     base-url: ${COURSE_SERVICE_URL:http://localhost:8083}
+  identity:
+    base-url: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+  user:
+    base-url: ${USER_SERVICE_URL:http://localhost:8082}
+  ai:
+    base-url: ${AI_SERVICE_URL:http://localhost:8000}
+  assessment:
+    base-url: ${ASSESSMENT_SERVICE_URL:http://localhost:8087}
+
+churn:
+  job:
+    enabled: ${CHURN_JOB_ENABLED:true}
+    # daily, after the night-time quiet hours (Asia/Ho_Chi_Minh)
+    cron: ${CHURN_JOB_CRON:0 0 2 * * *}
+  # do not send another reminder email for the same enrollment within this many days
+  reminder-cooldown-days: 7

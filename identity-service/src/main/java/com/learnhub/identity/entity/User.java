@@ -38,6 +38,9 @@ public class User {
     @Builder.Default
     private boolean isEmailVerified = false;
 
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

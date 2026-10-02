@@ -50,4 +50,17 @@ public class CourseInternalController {
 
         return ResponseEntity.ok(ApiResponse.success(response, "OK"));
     }
+
+    public record CourseOwnerResponse(UUID id, String title, UUID instructorId, String status) {
+    }
+
+    // Unlike getCourseInternal, also returns draft/pending courses: instructors build quizzes before publishing
+    @Operation(summary = "Get the owner of a course in any status (for internal use)")
+    @GetMapping("/{courseId}/owner")
+    public ResponseEntity<ApiResponse<CourseOwnerResponse>> getCourseOwner(@PathVariable UUID courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("COURSE_NOT_FOUND", "Course does not exist"));
+        return ResponseEntity.ok(ApiResponse.success(new CourseOwnerResponse(
+                course.getId(), course.getTitle(), course.getInstructorId(), course.getStatus().name()), "OK"));
+    }
 }

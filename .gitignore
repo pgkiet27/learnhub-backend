@@ -29,3 +29,6 @@ learnhub-dev_accessKeys.csv
 learnhub-s3-service_accessKeys.csv
 
 application-local.yml
+
+# Generated seed SQL
+docker/seed/seed-courses.sql

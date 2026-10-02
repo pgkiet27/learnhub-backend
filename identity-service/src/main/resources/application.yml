@@ -10,8 +10,8 @@ spring:
       resourceserver:
         jwt:
           # Cognito tự cung cấp JWKS endpoint để verify JWT signature
-          jwk-set-uri: ${COGNITO_JWK_SET_URI:https://cognito-idp.ap-southeast-1.amazonaws.com/${cognito.user-pool-id}/.well-known/jwks.json}
-          issuer-uri: ${COGNITO_ISSUER_URI:https://cognito-idp.ap-southeast-1.amazonaws.com/${cognito.user-pool-id}}
+          jwk-set-uri: ${COGNITO_JWK_SET_URI:https://cognito-idp.us-east-1.amazonaws.com/${cognito.user-pool-id}/.well-known/jwks.json}
+          issuer-uri: ${COGNITO_ISSUER_URI:https://cognito-idp.us-east-1.amazonaws.com/${cognito.user-pool-id}}
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/identity_db?options=-c+TimeZone%3DUTC}
@@ -104,7 +104,7 @@ cognito:
   user-pool-id: ${COGNITO_USER_POOL_ID:ap-southeast-1_xxxxxxxxx}
   client-id: ${COGNITO_CLIENT_ID:xxxxxxxxxxxxxxxxxxxxxxxxxx}
   client-secret: ${COGNITO_CLIENT_SECRET:xxxx}
-  region: ${COGNITO_REGION:ap-southeast-1}
+  region: ${COGNITO_REGION:us-east-1}
 
 jwt:
   secret: ${JWT_SECRET:learnhub-super-secret-key-change-in-production-must-be-256-bits}

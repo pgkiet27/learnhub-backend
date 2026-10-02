@@ -4,6 +4,7 @@ import com.learnhub.common.dto.ApiResponse;
 import com.learnhub.enrollment.dto.response.EnrollmentResponse;
 import com.learnhub.enrollment.dto.response.EnrollmentStatusResponse;
 import com.learnhub.enrollment.service.EnrollmentService;
+import com.learnhub.enrollment.service.LessonProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Enrollments", description = "Enroll / unenroll from courses")
@@ -20,6 +22,7 @@ import java.util.UUID;
 public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
+    private final LessonProgressService progressService;
 
     @Operation(summary = "Enroll in a free course")
     @PostMapping("/{courseId}")
@@ -50,5 +53,15 @@ public class EnrollmentController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 enrollmentService.getEnrollmentStatus(userId, courseId), "OK"));
+    }
+
+    @Operation(summary = "List IDs of completed lessons in the course")
+    @GetMapping("/{courseId}/completed-lessons")
+    public ResponseEntity<ApiResponse<List<UUID>>> getCompletedLessons(
+            @PathVariable UUID courseId,
+            @RequestHeader("X-User-Id") UUID userId) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                progressService.getCompletedLessonIds(userId, courseId), "OK"));
     }
 }

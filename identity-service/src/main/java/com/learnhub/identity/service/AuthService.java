@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -73,6 +75,7 @@ public class AuthService {
         if(isNewUser) {
             publishUserRegisteredEvent(user);
         }
+        recordLogin(user);
 
         // generate Learnhub JWT
         String accessToken = jwtService.generateAccessToken(
@@ -103,6 +106,8 @@ public class AuthService {
         }
 
         User user = stored.getUser();
+        // A refresh means the user came back after the 1h access token expired, so it counts as activity
+        recordLogin(user);
         String newAccessToken = jwtService.generateAccessToken(
                 user.getId(), user.getEmail(), user.getRole().name()
         );
@@ -158,6 +163,12 @@ public class AuthService {
     }
 
     // private helpers
+    private void recordLogin(User user) {
+        Instant now = Instant.now();
+        user.setLastLoginAt(now); // flushed by dirty checking at commit
+        userRepository.recordLoginDay(user.getId(), LocalDate.ofInstant(now, ZoneOffset.UTC));
+    }
+
     private void publishUserRegisteredEvent(User user){
         UserRegisteredEvent event = UserRegisteredEvent.builder()
                 .userId(user.getId())

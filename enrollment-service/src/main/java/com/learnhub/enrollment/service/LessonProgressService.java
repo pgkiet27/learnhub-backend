@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -47,6 +48,9 @@ public class LessonProgressService {
             progress.setWatchDurationSec(request.getWatchDurationSec());
         }
         progress.setLastPositionSec(request.getLastPositionSec());
+        if (request.getVideoDurationSec() != null && request.getVideoDurationSec() > 0) {
+            progress.setVideoDurationSec(request.getVideoDurationSec());
+        }
 
         boolean justCompleted = false;
         if (!progress.isCompleted()
@@ -94,6 +98,11 @@ public class LessonProgressService {
                         .lessonId(lessonId).isCompleted(false)
                         .watchDurationSec(0).lastPositionSec(0)
                         .build());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> getCompletedLessonIds(UUID userId, UUID courseId) {
+        return progressRepository.findCompletedLessonIds(findEnrollment(userId, courseId).getId());
     }
 
     // Private helpers

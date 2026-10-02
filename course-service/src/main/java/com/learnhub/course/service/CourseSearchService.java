@@ -147,7 +147,9 @@ public class CourseSearchService {
                 .findTop10ByStatusOrderByTotalStudentsDesc(Course.Status.published)
                 .stream()
                 .map(courseService::toCourseResponse)
-                .toList();
+                // ArrayList (not final) so Jackson writes a type id when caching into Redis.
+                // .toList() returns a final immutable list — no type id — which fails on cache read.
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
     }
 
     /**

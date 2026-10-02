@@ -8,7 +8,7 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_DB: identity_dbap
+      POSTGRES_DB: identity_db
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata # place data was saved
@@ -112,12 +112,57 @@ services:
     networks:
       - learnhub-network
 
+  assessment-db:
+    image: postgres:16-alpine
+    container_name: learnhub-assessment-db
+    restart: unless-stopped
+    ports:
+      - "5439:5432"
+    environment:
+      POSTGRES_DB: assessment_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - assessment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d assessment_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
+  # PostgreSQL + pgvector for ai-service (RAG embeddings, chatbot history)
+  ai-db:
+    image: pgvector/pgvector:pg16
+    container_name: learnhub-ai-db
+    restart: unless-stopped
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_DB: ai_db
+      POSTGRES_USER: ai_user
+      POSTGRES_PASSWORD: ai_password
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+      - ../ai-service/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro  # runs on first init only
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ai_user -d ai_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - learnhub-network
+
   redis:
     image: redis:7-alpine
     container_name: learnhub-redis
     restart: unless-stopped
     ports:
-      - "6380:6379"
+      - "6379:6379"
     # Redis does not need password when in local
     # if you want to have password, then type:
     # command: redis-server --requirepass ${REDIS_PASSWORD}
@@ -170,6 +215,10 @@ volumes:
     name: learnhub-enrollment-db-data
   payment-db-data:
     name: learnhub-payment-db-data
+  ai-db-data:
+    name: learnhub-ai-db-data
+  assessment-db-data:
+    name: learnhub-assessment-db-data
   redis-data:
     name: learnhub-redis-data
   rabbitmq-data:

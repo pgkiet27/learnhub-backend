@@ -74,6 +74,12 @@
         </dependency>
 
         <!-- Flyway — automatic DB migration -->
+        <!-- ShedLock — only one replica runs the churn job at a time -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-provider-jdbc-template</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>

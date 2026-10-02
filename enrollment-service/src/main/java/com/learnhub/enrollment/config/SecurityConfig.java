@@ -29,6 +29,9 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
 
+                        // Service-to-service, not routed by the API Gateway
+                        .requestMatchers("/api/v1/internal/**").permitAll()
+
                         // Every other endpoint (enroll, progress, my-learning...) requires
                         // authentication — no role-based split needed since ownership is
                         // matched directly via X-User-Id inside the Service layer

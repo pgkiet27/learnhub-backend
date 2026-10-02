@@ -78,6 +78,20 @@ public class LessonService {
     }
 
     @Transactional
+    public LessonResponse updateTranscript(UUID lessonId, String transcript, UUID instructorId) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "LESSON_NOT_FOUND", "Bài học không tồn tại"));
+
+        courseRepository.findByIdAndInstructorId(lesson.getCourseId(), instructorId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "COURSE_NOT_FOUND", "Không có quyền truy cập"));
+
+        lesson.setTranscript(transcript == null || transcript.isBlank() ? null : transcript.strip());
+        return toLessonResponse(lessonRepository.save(lesson));
+    }
+
+    @Transactional
     public LessonResponse publishLesson(UUID lessonId, UUID instructorId) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -106,6 +120,7 @@ public class LessonService {
                 .videoDuration(lesson.getVideoDuration())
                 .documentUrl(lesson.getDocumentUrl())
                 .content(lesson.getContent())
+                .transcript(lesson.getTranscript())
                 .displayOrder(lesson.getDisplayOrder())
                 .isPreview(lesson.isPreview())
                 .isPublished(lesson.isPublished())

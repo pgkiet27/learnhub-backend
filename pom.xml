@@ -31,6 +31,8 @@
         <module>course-service</module>
         <module>enrollment-service</module>
         <module>payment-service</module>
+        <module>notification-service</module>
+        <module>assessment-service</module>
     </modules>
 
     <!-- Shared properties -->
@@ -47,11 +49,19 @@
         <jjwt.version>0.12.6</jjwt.version>
         <!-- [FIX 3] Add Lombok version property for reuse in multiple places -->
         <lombok.version>1.18.42</lombok.version>
+        <shedlock.version>6.6.0</shedlock.version>
     </properties>
 
     <!-- Centralized dependency versions -->
     <dependencyManagement>
         <dependencies>
+
+            <!-- Distributed lock for scheduled jobs (multiple replicas) -->
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-jdbc-template</artifactId>
+                <version>${shedlock.version}</version>
+            </dependency>
 
             <!-- Shared LearnHub library -->
             <dependency>

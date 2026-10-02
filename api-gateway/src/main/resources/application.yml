@@ -32,7 +32,7 @@ spring:
         - id: user-service
           uri: ${USER_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/api/v1/users/**
+            - Path=/api/v1/users/**,/api/v1/admin/support-tickets/**
 
         # /api/v1/internal/** (service-to-service) is intentionally NOT routed
         - id: course-service
@@ -49,6 +49,17 @@ spring:
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/v1/payments/**,/api/v1/admin/payments/**
+
+        - id: assessment-service
+          uri: ${ASSESSMENT_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/quizzes/**
+
+        # /api/v1/internal/ai/** is intentionally NOT routed
+        - id: ai-service
+          uri: ${AI_SERVICE_URL:http://localhost:8000}
+          predicates:
+            - Path=/api/v1/ai/**
 
 server:
   port: 8080

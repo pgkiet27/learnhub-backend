@@ -1,0 +1,8 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+churn_prediction/data/
+churn_prediction/models/versions/
+churn_prediction/models/*.png

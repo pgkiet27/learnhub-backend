@@ -1,0 +1,26 @@
+# The Dockerfiles use backend/ as the build context, so the per-service .dockerignore files are
+# NOT applied — this one is. Keeps secrets and build output out of the context.
+
+# Secrets / local config (env vars are passed at runtime via docker compose, never baked in)
+**/.env
+**/.env.*
+!**/.env.example
+*.csv
+client_secret*.json
+
+# Build output
+**/target/
+
+# VCS / IDE / logs
+**/.git
+.gitignore
+**/.idea
+**/.vscode
+**/*.iml
+**/*.log
+
+# Compose files themselves
+docker/
+
+# Python service — built with its own context (ai-service/.dockerignore)
+ai-service/

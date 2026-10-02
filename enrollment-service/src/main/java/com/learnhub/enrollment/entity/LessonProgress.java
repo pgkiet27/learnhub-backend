@@ -42,6 +42,9 @@ public class LessonProgress {
     @Builder.Default
     private Integer lastPositionSec = 0;
 
+    @Column(name = "video_duration_sec")
+    private Integer videoDurationSec;
+
     @Column(name = "completed_at")
     private Instant completedAt;
 

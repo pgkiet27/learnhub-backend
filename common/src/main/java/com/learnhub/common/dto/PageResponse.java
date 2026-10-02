@@ -4,10 +4,14 @@ import java.util.List;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 import org.springframework.data.domain.Page;
 
 @Getter
 @Builder
+// Lets Jackson rebuild the object through the builder when reading it back from the Redis
+// cache (a @Builder-only class has no no-arg constructor, so Jackson cannot deserialize it)
+@Jacksonized
 public class PageResponse<T> {
     private List<T> content; // items list in current page
     private int page; // current page (start from 0)

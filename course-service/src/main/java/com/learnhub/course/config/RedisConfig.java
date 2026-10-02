@@ -54,7 +54,9 @@ public class RedisConfig {
                 )
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair
-                                .fromSerializer(new GenericJackson2JsonRedisSerializer())
+                                // Must reuse objectMapper() — the default one has no
+                                // JavaTimeModule, so it cannot serialize Instant (publishedAt/createdAt)
+                                .fromSerializer(new GenericJackson2JsonRedisSerializer(objectMapper()))
                 );
 
         return RedisCacheManager.builder(connectionFactory)
