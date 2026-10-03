@@ -89,6 +89,23 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- AWS S3 — export the churn training dataset; sso/ssooidc read an IAM Identity Center AWS_PROFILE -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.46.21</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sso</artifactId>
+            <version>2.46.21</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssooidc</artifactId>
+            <version>2.46.21</version>
+        </dependency>
+
         <!-- Springdoc OpenAPI — Swagger UI -->
         <dependency>
             <groupId>org.springdoc</groupId>

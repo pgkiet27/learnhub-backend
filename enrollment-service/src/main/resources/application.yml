@@ -109,3 +109,15 @@ churn:
     cron: ${CHURN_JOB_CRON:0 0 2 * * *}
   # do not send another reminder email for the same enrollment within this many days
   reminder-cooldown-days: 7
+  # training data for the churn model (table churn_feature_snapshots)
+  dataset:
+    # churn = no lesson activity within this many days after a snapshot
+    label-horizon-days: 14
+    export:
+      enabled: ${CHURN_EXPORT_ENABLED:false}
+      bucket: ${CHURN_EXPORT_BUCKET:}
+      prefix: ${CHURN_EXPORT_PREFIX:churn}
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  profile: ${AWS_PROFILE:}

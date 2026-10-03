@@ -6,15 +6,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("integration-test")
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
+    // Started once for the whole run (singleton containers): Spring caches the context across test classes,
+    // so per-class containers would leave a cached context pointing at a stopped container's port
     static final PostgreSQLContainer<?> postgres =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("enrollment_test")
@@ -22,10 +20,14 @@ public abstract class AbstractIntegrationTest {
                     .withPassword("test")
                     .withReuse(true);
 
-    @Container
     static final RabbitMQContainer rabbitMQ =
             new RabbitMQContainer("rabbitmq:3-management-alpine")
                     .withReuse(true);
+
+    static {
+        postgres.start();
+        rabbitMQ.start();
+    }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {

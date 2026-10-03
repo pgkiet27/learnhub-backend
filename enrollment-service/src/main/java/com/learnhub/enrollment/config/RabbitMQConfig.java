@@ -13,6 +13,7 @@ public class RabbitMQConfig {
     // exchange use for all services
     public static final String EXCHANGE_NAME = "learnhub.events";
     public static final String QUEUE_PAYMENT_SUCCESS = "enrollment.service.payment.success";
+    public static final String QUEUE_CHURN_REMINDER_DELIVERED = "enrollment.service.churn.reminder_delivered";
 
     // exchange
     @Bean
@@ -33,6 +34,7 @@ public class RabbitMQConfig {
 
     // Enrollment Service consume:
     // - payment.success    → auto-enroll into a paid course (published by Payment Service in B5)
+    // - churn.reminder_delivered → record that the churn reminder email was sent (Notification Service)
     @Bean
     public RabbitTemplate rabbitTemplate(
             ConnectionFactory connectionFactory, MessageConverter messageConverter) {
@@ -53,5 +55,19 @@ public class RabbitMQConfig {
                 .bind(paymentSuccessQueue)
                 .to(learnhubExchange)
                 .with("payment.success");
+    }
+
+    @Bean
+    public Queue churnReminderDeliveredQueue() {
+        return QueueBuilder.durable(QUEUE_CHURN_REMINDER_DELIVERED).build();
+    }
+
+    @Bean
+    public Binding churnReminderDeliveredBinding(Queue churnReminderDeliveredQueue,
+                                                 TopicExchange learnhubExchange) {
+        return BindingBuilder
+                .bind(churnReminderDeliveredQueue)
+                .to(learnhubExchange)
+                .with("churn.reminder_delivered");
     }
 }

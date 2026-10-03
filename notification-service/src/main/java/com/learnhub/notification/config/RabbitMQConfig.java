@@ -15,9 +15,12 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
     public static final String EXCHANGE_NAME = "learnhub.events";
     public static final String QUEUE_CHURN_HIGH_RISK = "notification.service.churn.high_risk";
+    public static final String ROUTING_KEY_REMINDER_DELIVERED = "churn.reminder_delivered";
 
     // Notification Service consumes:
     // - churn.high_risk → learning reminder email (published by Enrollment Service's churn job)
+    // Notification Service publishes:
+    // - churn.reminder_delivered → the reminder email was sent (consumed by Enrollment Service)
 
     @Bean
     public TopicExchange learnhubExchange() {

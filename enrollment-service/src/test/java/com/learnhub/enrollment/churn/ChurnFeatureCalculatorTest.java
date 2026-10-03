@@ -64,6 +64,7 @@ class ChurnFeatureCalculatorTest {
                 .containsEntry("quiz_failure_count", 3.0)
                 .containsEntry("support_tickets_opened", 1.0)
                 .hasSize(8);
+        assertThat(f.keySet()).containsExactlyInAnyOrderElementsOf(ChurnFeatureCalculator.FEATURE_NAMES);
     }
 
     @Test

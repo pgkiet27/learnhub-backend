@@ -14,12 +14,12 @@ from pydantic import Field
 
 from app.api_response import ApiError, ApiResponse, CamelModel, ok, register_exception_handlers
 from app.chat_history import get_latest_conversation
+from app.churn_scoring import ChurnModelUnavailable, predict_batch
 from app.db import get_connection
 from app.indexing import index_lesson
 from app.rag_query import ask_chatbot
 from app.security import CurrentUser, current_user, require_enrollment
 from app.summarize import get_lesson_course_id, summarize_lesson
-from churn_prediction.predict import predict_churn
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 
@@ -205,11 +205,15 @@ def predict_churn_endpoint(req: ChurnPredictRequest):
     Hiện train trên dữ liệu synthetic — khi có dữ liệu hành vi thật của LearnHub,
     chạy lại `train_model.py`, endpoint này không cần sửa gì thêm.
     """
-    try:
-        result = predict_churn(req.features)
-    except FileNotFoundError as e:
-        raise ApiError(503, "MODEL_NOT_TRAINED", str(e))
-    return ok(ChurnPredictResponse(**result))
+    model_used, [p] = _score([("single", req.features)])
+    return ok(ChurnPredictResponse(
+        churn_score=p["churn_score"],
+        churn_label=p["churn_label"],
+        risk_level=p["risk_level"],
+        model_used=model_used,
+        missing_features=p["missing_features"],
+        warnings=p["warnings"],
+    ))
 
 
 @internal.post(
@@ -219,24 +223,28 @@ def predict_churn_endpoint(req: ChurnPredictRequest):
 )
 def predict_churn_batch_endpoint(req: ChurnBatchRequest):
     """Batch scoring for the daily churn job in enrollment-service."""
-    try:
-        predictions = [(item.id, predict_churn(item.features)) for item in req.items]
-    except FileNotFoundError as e:
-        raise ApiError(503, "MODEL_NOT_TRAINED", str(e))
-
+    model_used, predictions = _score([(item.id, item.features) for item in req.items])
     results = [
         ChurnBatchResult(
-            id=item_id,
+            id=p["id"],
             churn_score=p["churn_score"],
             churn_label=p["churn_label"],
             risk_level=p["risk_level"],
             missing_features=p["missing_features"],
             warnings=p["warnings"],
         )
-        for item_id, p in predictions
+        for p in predictions
     ]
-    model_used = predictions[0][1]["model_used"] if predictions else ""
     return ok(ChurnBatchResponse(model_used=model_used, results=results))
+
+
+def _score(items: list[tuple[str, dict]]) -> tuple[str, list[dict]]:
+    try:
+        return predict_batch(items)
+    except FileNotFoundError as e:
+        raise ApiError(503, "MODEL_NOT_TRAINED", str(e))
+    except ChurnModelUnavailable as e:
+        raise ApiError(503, "CHURN_MODEL_UNAVAILABLE", str(e))
 
 
 # ---------- Ops ----------

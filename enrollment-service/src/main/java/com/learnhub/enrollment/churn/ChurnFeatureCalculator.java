@@ -21,6 +21,17 @@ import java.util.Objects;
  */
 public final class ChurnFeatureCalculator {
 
+    /** Every feature compute() can return; also the column names in churn_feature_snapshots. */
+    public static final List<String> FEATURE_NAMES = List.of(
+            "current_course_progress",
+            "days_since_last_lesson",
+            "watch_percentage_last_week",
+            "days_to_complete_last_lesson",
+            "days_since_last_login",
+            "login_frequency_trend",
+            "quiz_failure_count",
+            "support_tickets_opened");
+
     static final Duration WEEK = Duration.ofDays(7);
     private static final double MAX_DAYS = 365;
 

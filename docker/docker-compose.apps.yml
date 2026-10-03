@@ -144,7 +144,7 @@ services:
     ports:
       - "8084:8084"
     env_file:
-      - path: ../enrollment-service/.env
+      - path: ../enrollment-service/.env     # CHURN_EXPORT_* / AWS_PROFILE for the churn dataset export
         required: false
     environment:
       <<: *infra-env
@@ -154,6 +154,9 @@ services:
       USER_SERVICE_URL: http://user-service:8082
       AI_SERVICE_URL: http://ai-service:8000
       ASSESSMENT_SERVICE_URL: http://assessment-service:8087
+    volumes:
+      # Same AWS SSO setup as course-service; only used when CHURN_EXPORT_ENABLED=true
+      - ${AWS_DIR:-~/.aws}:/home/learnhub/.aws
     depends_on:
       <<: *infra-depends-on
       enrollment-db:
@@ -277,6 +280,9 @@ services:
       DATABASE_URL: postgresql://ai_user:ai_password@ai-db:5432/ai_db
       ENROLLMENT_SERVICE_URL: http://enrollment-service:8084
       COURSE_DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@course-db:5432/course_db
+    volumes:
+      # Same AWS SSO setup as course-service (container runs as root); only used when CHURN_MODEL_BACKEND=sagemaker
+      - ${AWS_DIR:-~/.aws}:/root/.aws
     depends_on:
       ai-db:
         condition: service_healthy

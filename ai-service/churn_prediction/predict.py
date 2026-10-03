@@ -8,6 +8,8 @@ chỉ cần chạy lại `train_model.py` với data thật (cùng format 8 feat
 pipeline predict dưới đây giữ nguyên không đổi.
 """
 import pathlib
+from dataclasses import dataclass
+
 import joblib
 import pandas as pd
 
@@ -32,12 +34,21 @@ FEATURE_RANGES = {
     "days_to_complete_last_lesson": (0, 365),
 }
 
+
+@dataclass(frozen=True)
+class ChurnArtifacts:
+    """Files of one training run; also what the SageMaker container loads (see sagemaker_inference.py)."""
+    model: object
+    scaler: object
+    feature_names: list
+    feature_means: dict
+    model_name: str
+    # Model Registry version when served by SageMaker, otherwise the model name
+    model_version: str
+
+
 # Lazy-load: chỉ đọc file model 1 lần, dùng lại cho các lần gọi sau
-_model = None
-_scaler = None
-_feature_names = None
-_feature_means = None
-_model_name = None
+_local_artifacts = None
 
 
 def _validate_features(features: dict) -> list:
@@ -59,24 +70,31 @@ def _validate_features(features: dict) -> list:
     return warnings
 
 
-def _load_artifacts():
-    global _model, _scaler, _feature_names, _feature_means, _model_name
-    if _model is not None:
-        return
-
-    if not (MODELS_DIR / "best_model.pkl").exists():
+def load_artifacts(model_dir: pathlib.Path, model_version: str | None = None) -> ChurnArtifacts:
+    model_dir = pathlib.Path(model_dir)
+    if not (model_dir / "best_model.pkl").exists():
         raise FileNotFoundError(
             "Chưa có model nào được train. Chạy `python -m churn_prediction.train_model` trước."
         )
 
-    _model = joblib.load(MODELS_DIR / "best_model.pkl")
-    _scaler = joblib.load(MODELS_DIR / "scaler.pkl")
-    _feature_names = joblib.load(MODELS_DIR / "feature_names.pkl")
-    means_path = MODELS_DIR / "feature_means.pkl"
-    # Model train từ bản cũ chưa có file này -> fallback điền 0 như trước
-    _feature_means = joblib.load(means_path) if means_path.exists() else {}
-    with open(MODELS_DIR / "best_model_name.txt", encoding="utf-8") as f:
-        _model_name = f.read().strip()
+    means_path = model_dir / "feature_means.pkl"
+    model_name = (model_dir / "best_model_name.txt").read_text(encoding="utf-8").strip()
+    return ChurnArtifacts(
+        model=joblib.load(model_dir / "best_model.pkl"),
+        scaler=joblib.load(model_dir / "scaler.pkl"),
+        feature_names=joblib.load(model_dir / "feature_names.pkl"),
+        # Model train từ bản cũ chưa có file này -> fallback điền 0 như trước
+        feature_means=joblib.load(means_path) if means_path.exists() else {},
+        model_name=model_name,
+        model_version=model_version or model_name,
+    )
+
+
+def _get_local_artifacts() -> ChurnArtifacts:
+    global _local_artifacts
+    if _local_artifacts is None:
+        _local_artifacts = load_artifacts(MODELS_DIR)
+    return _local_artifacts
 
 
 def _risk_level(score: float) -> str:
@@ -88,6 +106,11 @@ def _risk_level(score: float) -> str:
 
 
 def predict_churn(features: dict) -> dict:
+    """Dự đoán churn cho 1 học viên bằng model local (thư mục models/)."""
+    return predict_with(_get_local_artifacts(), features)
+
+
+def predict_with(artifacts: ChurnArtifacts, features: dict) -> dict:
     """
     Dự đoán churn cho 1 học viên.
 
@@ -106,35 +129,33 @@ def predict_churn(features: dict) -> dict:
         dict {churn_score, churn_label, risk_level, model_used,
               missing_features, warnings}
     """
-    _load_artifacts()
-
-    missing = [f for f in _feature_names if f not in features]
+    missing = [f for f in artifacts.feature_names if f not in features]
     warnings = _validate_features(features)
 
     row = {}
-    for f in _feature_names:
+    for f in artifacts.feature_names:
         # Thiếu / không hợp lệ -> điền TRUNG BÌNH lúc train (không phải 0: với
         # feature như % xem video, 0 nghĩa là "không học", làm score lệch hẳn).
-        fallback = _feature_means.get(f, 0.0)
+        fallback = artifacts.feature_means.get(f, 0.0)
         value = features.get(f, fallback)
         try:
             row[f] = float(value)
         except (TypeError, ValueError):
             row[f] = float(fallback)  # đã cảnh báo ở warnings
 
-    X = pd.DataFrame([row], columns=_feature_names)
+    X = pd.DataFrame([row], columns=artifacts.feature_names)
 
     # Logistic Regression cần dữ liệu đã chuẩn hóa (StandardScaler) vì lúc
     # train cũng chuẩn hóa; Random Forest/XGBoost không cần.
-    X_input = _scaler.transform(X) if _model_name == "Logistic Regression" else X
+    X_input = artifacts.scaler.transform(X) if artifacts.model_name == "Logistic Regression" else X
 
-    churn_proba = float(_model.predict_proba(X_input)[0, 1])
+    churn_proba = float(artifacts.model.predict_proba(X_input)[0, 1])
 
     return {
         "churn_score": round(churn_proba, 4),
         "churn_label": churn_proba >= HIGH_RISK_THRESHOLD,  # True = nguy cơ cao, cần can thiệp
         "risk_level": _risk_level(churn_proba),
-        "model_used": _model_name,
+        "model_used": artifacts.model_version,
         "missing_features": missing,
         "warnings": warnings,
     }

@@ -74,6 +74,9 @@ public class Enrollment {
     @Column(name = "churn_reminded_at")
     private Instant churnRemindedAt;
 
+    @Column(name = "churn_reminder_delivered_at")
+    private Instant churnReminderDeliveredAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

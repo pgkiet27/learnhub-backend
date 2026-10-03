@@ -12,6 +12,7 @@ import com.learnhub.enrollment.client.dto.QuizFailureCount;
 import com.learnhub.enrollment.client.dto.UserActivity;
 import com.learnhub.enrollment.entity.Enrollment;
 import com.learnhub.enrollment.entity.LessonProgress;
+import com.learnhub.enrollment.repository.ChurnSnapshotRepository;
 import com.learnhub.enrollment.repository.EnrollmentRepository;
 import com.learnhub.enrollment.repository.LessonProgressRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -46,6 +49,8 @@ public class ChurnScorer {
 
     static final int BATCH_SIZE = 200;
     static final String HIGH_RISK = "high";
+    // The nightly run starts a few ms earlier or later each day; without slack a 7-day cooldown could last 8
+    static final Duration COOLDOWN_TOLERANCE = Duration.ofHours(1);
 
     private final EnrollmentRepository enrollmentRepository;
     private final LessonProgressRepository progressRepository;
@@ -53,8 +58,9 @@ public class ChurnScorer {
     private final AiServiceClient aiServiceClient;
     private final AssessmentServiceClient assessmentServiceClient;
     private final UserServiceClient userServiceClient;
+    private final ChurnSnapshotRepository snapshotRepository;
 
-    public record PageOutcome(int scored, Map<String, Integer> byRisk,
+    public record PageOutcome(int scored, int snapshots, Map<String, Integer> byRisk,
                               List<ChurnRiskDetectedEvent> reminders, boolean hasNext) {
     }
 
@@ -65,7 +71,7 @@ public class ChurnScorer {
                 PageRequest.of(page, BATCH_SIZE, Sort.by("id")));
         List<Enrollment> enrollments = batch.getContent();
         if (enrollments.isEmpty()) {
-            return new PageOutcome(0, Map.of(), List.of(), false);
+            return new PageOutcome(0, 0, Map.of(), List.of(), false);
         }
 
         Map<UUID, List<LessonProgress>> progressByEnrollment = progressRepository
@@ -73,51 +79,73 @@ public class ChurnScorer {
                 .collect(Collectors.groupingBy(p -> p.getEnrollment().getId()));
         Set<UUID> userIds = enrollments.stream().map(Enrollment::getUserId).collect(Collectors.toSet());
         // Each source is optional: if a service is down, its features are left to the model defaults
-        Map<UUID, UserActivity> activity = fetchOrEmpty("identity-service",
+        Set<String> failedSources = new TreeSet<>();
+        Map<UUID, UserActivity> activity = fetchOrEmpty("identity", failedSources,
                 () -> identityServiceClient.getActivity(userIds));
-        Map<UUID, Long> tickets = fetchOrEmpty("user-service",
+        Map<UUID, Long> tickets = fetchOrEmpty("user", failedSources,
                 () -> userServiceClient.getSupportTicketCounts(userIds));
-        Map<UserCourse, Long> quizFailures = fetchOrEmpty("assessment-service",
+        Map<UserCourse, Long> quizFailures = fetchOrEmpty("assessment", failedSources,
                 () -> assessmentServiceClient.getFailureCounts(enrollments.stream()
                                 .map(e -> new UserCourse(e.getUserId(), e.getCourseId())).toList())
                         .stream()
                         .collect(Collectors.toMap(c -> new UserCourse(c.userId(), c.courseId()),
                                 QuizFailureCount::failedAttempts, Long::sum)));
 
-        List<ChurnBatchRequest.Item> items = enrollments.stream()
-                .map(e -> new ChurnBatchRequest.Item(e.getId().toString(), ChurnFeatureCalculator.compute(
+        Map<UUID, Map<String, Double>> features = enrollments.stream()
+                .collect(Collectors.toMap(Enrollment::getId, e -> ChurnFeatureCalculator.compute(
                         e, progressByEnrollment.getOrDefault(e.getId(), List.of()), activity.get(e.getUserId()),
                         quizFailures.get(new UserCourse(e.getUserId(), e.getCourseId())), tickets.get(e.getUserId()),
-                        now)))
+                        now)));
+        List<ChurnBatchRequest.Item> items = enrollments.stream()
+                .map(e -> new ChurnBatchRequest.Item(e.getId().toString(), features.get(e.getId())))
                 .toList();
         if (log.isDebugEnabled()) {
             items.forEach(i -> log.debug("Churn features for enrollment {}: {}", i.id(), i.features()));
         }
-        Map<String, ChurnBatchResponse.Result> results = aiServiceClient.predictChurn(new ChurnBatchRequest(items))
-                .results().stream()
-                .collect(Collectors.toMap(ChurnBatchResponse.Result::id, Function.identity()));
+
+        Map<String, ChurnBatchResponse.Result> results = Map.of();
+        String modelUsed = null;
+        try {
+            ChurnBatchResponse response = aiServiceClient.predictChurn(new ChurnBatchRequest(items));
+            modelUsed = response.modelUsed();
+            results = response.results().stream()
+                    .collect(Collectors.toMap(ChurnBatchResponse.Result::id, Function.identity()));
+        } catch (Exception ex) {
+            // Still keep the snapshots: a day without features cannot be rebuilt later
+            log.error("Churn prediction failed for page {}: {}", page, ex.getMessage());
+            failedSources.add("ai");
+        }
+        String missingSources = failedSources.isEmpty() ? null : String.join(",", failedSources);
 
         Map<String, Integer> byRisk = new HashMap<>();
         List<ChurnRiskDetectedEvent> reminders = new ArrayList<>();
+        List<ChurnSnapshot> snapshots = new ArrayList<>();
         int scored = 0;
         for (Enrollment e : enrollments) {
             ChurnBatchResponse.Result r = results.get(e.getId().toString());
-            if (r == null) {
-                continue;
-            }
-            e.setChurnScore(r.churnScore().setScale(4, RoundingMode.HALF_UP));
-            e.setChurnRiskLevel(r.riskLevel());
-            e.setChurnPredictedAt(now);
-            byRisk.merge(r.riskLevel(), 1, Integer::sum);
-            scored++;
+            BigDecimal score = null;
+            boolean reminded = false;
+            if (r != null) {
+                score = r.churnScore().setScale(4, RoundingMode.HALF_UP);
+                e.setChurnScore(score);
+                e.setChurnRiskLevel(r.riskLevel());
+                e.setChurnPredictedAt(now);
+                byRisk.merge(r.riskLevel(), 1, Integer::sum);
+                scored++;
 
-            if (HIGH_RISK.equals(r.riskLevel()) && reminderDue(e, now, reminderCooldown)) {
-                e.setChurnRemindedAt(now);
-                reminders.add(toEvent(e));
+                if (HIGH_RISK.equals(r.riskLevel()) && reminderDue(e, now, reminderCooldown)) {
+                    e.setChurnRemindedAt(now);
+                    reminders.add(toEvent(e));
+                    reminded = true;
+                }
             }
+            snapshots.add(new ChurnSnapshot(e.getId(), e.getUserId(), e.getCourseId(), e.getEnrolledAt(),
+                    features.get(e.getId()), missingSources, score, r == null ? null : r.riskLevel(),
+                    r == null ? null : modelUsed, reminded));
         }
         enrollmentRepository.saveAll(enrollments);
-        return new PageOutcome(scored, byRisk, reminders, batch.hasNext());
+        snapshotRepository.saveAll(ChurnSnapshot.dateOf(now), now, snapshots);
+        return new PageOutcome(scored, snapshots.size(), byRisk, reminders, batch.hasNext());
     }
 
     /** Marks the course's high-risk students (outside the cooldown) as reminded and returns their events. */
@@ -133,18 +161,21 @@ public class ChurnScorer {
         return reminders;
     }
 
-    private static <K, V> Map<K, V> fetchOrEmpty(String service, Supplier<Map<K, V>> call) {
+    private static <K, V> Map<K, V> fetchOrEmpty(String service, Set<String> failedSources,
+                                                 Supplier<Map<K, V>> call) {
         try {
             return call.get();
         } catch (Exception ex) {
             // Score without these features rather than skipping the whole batch
-            log.warn("Could not load churn features from {}: {}", service, ex.getMessage());
+            log.warn("Could not load churn features from {}-service: {}", service, ex.getMessage());
+            failedSources.add(service);
             return Map.of();
         }
     }
 
-    private static boolean reminderDue(Enrollment e, Instant now, Duration cooldown) {
-        return e.getChurnRemindedAt() == null || e.getChurnRemindedAt().isBefore(now.minus(cooldown));
+    static boolean reminderDue(Enrollment e, Instant now, Duration cooldown) {
+        return e.getChurnRemindedAt() == null
+                || !e.getChurnRemindedAt().isAfter(now.minus(cooldown).plus(COOLDOWN_TOLERANCE));
     }
 
     private static ChurnRiskDetectedEvent toEvent(Enrollment e) {

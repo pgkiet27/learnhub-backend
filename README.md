@@ -108,6 +108,23 @@ node docker/seed/seed-churn-demo.js            # thêm --remove để xóa
 curl -X POST http://localhost:8084/api/v1/internal/churn/run
 ```
 
+### Dữ liệu train cho churn (MLOps)
+
+Mỗi lần job chạy, feature của từng enrollment được lưu vào bảng `churn_feature_snapshots` (enrollment_db). Sau 14 ngày, snapshot được gán nhãn `churn` (1 = không học bài nào trong 14 ngày và chưa hoàn thành khóa). Bật `CHURN_EXPORT_ENABLED=true` và đặt `CHURN_EXPORT_BUCKET` trong `enrollment-service/.env` để đẩy lên S3:
+
+```
+s3://<bucket>/churn/features/dt=YYYY-MM-DD/part-0.jsonl.gz   # ngay sau mỗi lần chạy
+s3://<bucket>/churn/labels/dt=YYYY-MM-DD/part-0.jsonl.gz     # dt = ngày snapshot, ghi sau 14 ngày
+```
+
+Đẩy lại một ngày (ví dụ sau khi S3 lỗi):
+
+```bash
+curl -X POST "http://localhost:8084/api/v1/internal/churn/export?date=2026-10-03"
+```
+
+Model churn mặc định chạy ngay trong ai-service (file trong `churn_prediction/models`). Khi model đã được deploy lên SageMaker, đặt `CHURN_MODEL_BACKEND=sagemaker` và `CHURN_SAGEMAKER_ENDPOINT` trong `ai-service/.env`: ai-service chuyển tiếp request sang endpoint, enrollment-service không cần sửa gì. Định dạng request/response của endpoint và cách đóng gói nằm trong `churn_prediction/sagemaker_inference.py`.
+
 ## Chạy một service trên máy (dev)
 
 ```bash
