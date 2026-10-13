@@ -185,7 +185,7 @@ jobs:
             helm-charts/notification-service/values.yaml
 
           # Commit and push
-          git config user.email "ci@learnhub.vn"
+          git config user.email "ci@learnhub-edu.site"
           git config user.name "LearnHub CI"
           git add helm-charts/notification-service/values.yaml
           git commit -m "ci: update notification-service image to ${{ github.sha }}"

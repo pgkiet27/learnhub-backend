@@ -190,7 +190,7 @@ jobs:
             helm-charts/user-service/values.yaml
 
           # Commit and push
-          git config user.email "ci@learnhub.vn"
+          git config user.email "ci@learnhub-edu.site"
           git config user.name "LearnHub CI"
           git add helm-charts/user-service/values.yaml
           git commit -m "ci: update user-service image to ${{ github.sha }}"

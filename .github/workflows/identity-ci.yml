@@ -191,7 +191,7 @@ jobs:
             helm-charts/identity-service/values.yaml
 
           # Commit and push
-          git config user.email "ci@learnhub.vn"
+          git config user.email "ci@learnhub-edu.site"
           git config user.name "LearnHub CI"
           git add helm-charts/identity-service/values.yaml
           git commit -m "ci: update identity-service image to ${{ github.sha }}"
