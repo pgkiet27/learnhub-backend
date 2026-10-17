@@ -9,6 +9,8 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -19,11 +21,11 @@ public class ChurnReminderDeliveredListener {
     @RabbitListener(queues = RabbitMQConfig.QUEUE_CHURN_REMINDER_DELIVERED)
     @Transactional
     public void onReminderDelivered(ChurnReminderDeliveredEvent event) {
-        enrollmentRepository.findById(event.getEnrollmentId()).ifPresentOrElse(e -> {
-            // Redelivered or out-of-order messages must not move the time backwards
-            if (e.getChurnReminderDeliveredAt() == null || event.getDeliveredAt().isAfter(e.getChurnReminderDeliveredAt())) {
-                e.setChurnReminderDeliveredAt(event.getDeliveredAt());
-            }
-        }, () -> log.warn("Churn reminder delivered for unknown enrollment {}", event.getEnrollmentId()));
+        // Redelivered or out-of-order messages must not move the time backwards
+        int updated = enrollmentRepository.recordChurnReminderDelivered(
+                event.getEnrollmentId(), event.getDeliveredAt(), Instant.now());
+        if (updated == 0 && !enrollmentRepository.existsById(event.getEnrollmentId())) {
+            log.warn("Churn reminder delivered for unknown enrollment {}", event.getEnrollmentId());
+        }
     }
 }
