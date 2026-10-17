@@ -4,6 +4,7 @@ import com.learnhub.enrollment.entity.Enrollment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -25,6 +26,14 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, UUID> {
             UUID userId, boolean isCompleted, Pageable pageable);
 
     // Churn prediction
+
+    // Single conditional UPDATE so concurrent consumers cannot move the time backwards
+    @Modifying
+    @Query("""
+            UPDATE Enrollment e SET e.churnReminderDeliveredAt = :deliveredAt, e.updatedAt = :now
+            WHERE e.id = :id AND (e.churnReminderDeliveredAt IS NULL OR e.churnReminderDeliveredAt < :deliveredAt)
+            """)
+    int recordChurnReminderDelivered(UUID id, Instant deliveredAt, Instant now);
 
     Page<Enrollment> findByIsCompletedFalse(Pageable pageable);
 
