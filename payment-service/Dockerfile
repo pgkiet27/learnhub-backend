@@ -15,17 +15,19 @@ COPY user-service/ user-service/
 COPY course-service/ course-service/
 COPY enrollment-service/ enrollment-service/
 COPY payment-service/ payment-service/
+COPY notification-service/ notification-service/
+COPY assessment-service/ assessment-service/
 
 RUN ./mvnw dependency:go-offline -B
 
-# Bước 1: Install root POM into local Maven cache
+# Step 1: Install root POM into local Maven cache
 # "N" = just install POM, not build source/test
 RUN ./mvnw install -N -DskipTests -B
 
-# Bước 2: Install common (payment-service depends on common)
+# Step 2: Install common (payment-service depends on common)
 RUN ./mvnw clean install -pl common -DskipTests -B
 
-# Bước 3: Package identity-service
+# Step 3: Package payment-service
 RUN ./mvnw clean package -pl payment-service -DskipTests -B
 
 # Stage 2: RUNTIME

@@ -2,6 +2,9 @@ spring:
   application:
     name: enrollment-service
 
+  config:
+    import: optional:file:./.env[.properties]
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5436/enrollment_db}
     username: ${DB_USER:learnhub}
@@ -14,7 +17,7 @@ spring:
 
   jpa:
     hibernate:
-      # validate: Hibernate chỉ kiểm tra schema, Flyway quản lý schema
+      # validate: Hibernate only checks the schema, Flyway manages it
       ddl-auto: validate
     show-sql: false
     properties:
@@ -52,18 +55,18 @@ management:
   endpoint:
     health:
       show-details: always
-      # always: hiện chi tiết DB connection, Redis, RabbitMQ status
-      # when-authorized: chỉ hiện khi đã auth (dùng production)
+      # always: shows DB connection, Redis, RabbitMQ status in detail
+      # when-authorized: only shown once authenticated (used in production)
       probes:
         enabled: true
-        # Bật liveness và readiness probes cho Kubernetes
+        # Enable liveness and readiness probes for Kubernetes
   health:
     rabbit:
-      enabled: true # Kiểm tra RabbitMQ connection
+      enabled: true # Check RabbitMQ connection
     redis:
-      enabled: true # Kiểm tra Redis connection
+      enabled: true # Check Redis connection
     db:
-      enabled: true # Kiểm tra PostgreSQL connection
+      enabled: true # Check PostgreSQL connection
   metrics:
     tags:
       application: ${spring.application.name}
@@ -86,3 +89,35 @@ logging:
     com.learnhub: INFO
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
+
+services:
+  course:
+    base-url: ${COURSE_SERVICE_URL:http://localhost:8083}
+  identity:
+    base-url: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+  user:
+    base-url: ${USER_SERVICE_URL:http://localhost:8082}
+  ai:
+    base-url: ${AI_SERVICE_URL:http://localhost:8000}
+  assessment:
+    base-url: ${ASSESSMENT_SERVICE_URL:http://localhost:8087}
+
+churn:
+  job:
+    enabled: ${CHURN_JOB_ENABLED:true}
+    # daily, after the night-time quiet hours (Asia/Ho_Chi_Minh)
+    cron: ${CHURN_JOB_CRON:0 0 2 * * *}
+  # do not send another reminder email for the same enrollment within this many days
+  reminder-cooldown-days: 7
+  # training data for the churn model (table churn_feature_snapshots)
+  dataset:
+    # churn = no lesson activity within this many days after a snapshot
+    label-horizon-days: 14
+    export:
+      enabled: ${CHURN_EXPORT_ENABLED:false}
+      bucket: ${CHURN_EXPORT_BUCKET:}
+      prefix: ${CHURN_EXPORT_PREFIX:churn}
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  profile: ${AWS_PROFILE:}

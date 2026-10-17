@@ -1,0 +1,205 @@
+# CI Pipeline — Assessment Service
+# Trigger: push code into assessment-service/ on branch main/develop
+name: Assessment Service CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      # only trigger when changes are made to assessment-service or common
+      # other services when  push code → this pipeline not run
+      - 'assessment-service/**'
+      - 'common/**'
+      - '.github/workflows/assessment-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'assessment-service/**'
+      - 'common/**'
+  workflow_dispatch:
+
+# environment variables for the entire workflow
+env:
+  JAVA_VERSION: '25'
+  SERVICE: assessment-service
+  ECR_REPOSITORY: learnhub/assessment-service
+  AWS_REGION: ap-southeast-1
+
+jobs:
+  # Job 1: Build and Test
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    # runs-on: GitHub virtual environment provided for running CI
+
+    steps:
+      # step 1: Checkout code from repo
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # step 2: install Java 25
+      - name: Setup Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'  # same distribution with Dockerfile
+          cache: maven             # Cache Maven dependencies between runs
+
+      # Step 3:
+      # Step 3a: Install Parent POM into Maven cache
+      - name: Install Parent POM
+        run: mvn install -N -DskipTests -B
+        # -N: non-recursive, only install root POM, not build child modules
+
+      # Step 3b: Install Common module
+      - name: Install Common module
+        run: mvn clean install -pl common -DskipTests -B
+
+      # step 4: Run Unit Tests
+      - name: Run Unit Tests
+        run: mvn test -pl assessment-service -B
+        env:
+          # no need real DB for unit tests
+          SPRING_PROFILES_ACTIVE: test
+
+      # step 5: Run Integration Tests (needs Docker to run Testcontainers)
+      - name: Run Integration Tests
+        run: mvn verify -pl assessment-service -B
+        env:
+          SPRING_PROFILES_ACTIVE: integration-test
+          TESTCONTAINERS_RYUK_DISABLED: true
+        # Testcontainers automatically start PostgreSQL in Docker
+        # GitHub Actions runner have Docker before
+
+      # Step 6: SonarQube analysis (code quality)
+      - name: SonarQube Analysis
+        # only run when push into main (not run for all PR)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          mvn sonar:sonar \
+            -pl assessment-service \
+            -am \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
+            -Dsonar.projectKey=learnhub-assessment \
+            -Dsonar.projectName="LearnHub Assessment Service" \
+            -Dsonar.branch.name=main \
+            -B
+
+      # step 7: Notify Discord when test failed
+      - name: Notify Discord — Test Failed
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          status: ${{ job.status }}
+          title: "❌ Assessment Service — Build/Test Failed"
+          description: |
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+            **By:** ${{ github.actor }}
+          color: 0xFF0000
+
+  # Job 2: build image, push to ECR and bump the tag in learnhub-infra (main only)
+  build-image:
+    name: Build & Push Image to ECR
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      id-token: write
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f ${{ env.SERVICE }}/Dockerfile \
+            -t ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} \
+            .
+
+      - name: Security scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: '${{ env.SERVICE }}'
+
+      - name: Push image
+        run: docker push ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Update image tag in infra repo
+        env:
+          INFRA_REPO_TOKEN: ${{ secrets.INFRA_REPO_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${INFRA_REPO_TOKEN}@github.com/pgkiet27/learnhub-infra.git"
+          cd learnhub-infra
+          git config user.email "ci@learnhub-edu.site"
+          git config user.name "LearnHub CI"
+          sed -i "s|tag: .*|tag: ${GITHUB_SHA}|g" "helm-charts/${SERVICE}/values.yaml"
+          git add "helm-charts/${SERVICE}/values.yaml"
+          if git diff --cached --quiet; then
+            echo "Image tag already up to date"
+            exit 0
+          fi
+          git commit -m "ci: update ${SERVICE} image to ${GITHUB_SHA}"
+          for i in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((i * 5))
+          done
+          exit 1
+
+      - name: Notify Discord — Deploy Success
+        if: success()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          status: success
+          title: "✅ Assessment Service — Image pushed to ECR"
+          description: |
+            **Image:** `${{ env.ECR_REPOSITORY }}:${{ github.sha }}`
+            **By:** ${{ github.actor }}
+          color: 0x10B981
+
+      - name: Notify Discord — Build Failed
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          status: failure
+          title: "❌ Assessment Service — Build/Push Failed"
+          description: |
+            **Branch:** ${{ github.ref_name }}
+            **By:** ${{ github.actor }}
+          color: 0xFF0000

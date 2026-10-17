@@ -15,6 +15,8 @@ COPY user-service/ user-service/
 COPY course-service/ course-service/
 COPY enrollment-service/ enrollment-service/
 COPY payment-service/ payment-service/
+COPY notification-service/ notification-service/
+COPY assessment-service/ assessment-service/
 
 RUN ./mvnw dependency:go-offline -B
 

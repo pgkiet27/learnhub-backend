@@ -1,0 +1,29 @@
+# Profile riêng cho Integration Tests
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    clean-on-validation-error: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: https://example.com/.well-known/jwks.json
+
+aws:
+  region: ap-southeast-1
+  s3:
+    bucket-name: test-bucket
+    presigned-url-expiry: 900
+    max-file-size-mb: 500
+  credentials:
+    access-key-id: test-key
+    secret-access-key: test-secret
+
+logging:
+  level:
+    com.learnhub: DEBUG
+    org.flywaydb: DEBUG

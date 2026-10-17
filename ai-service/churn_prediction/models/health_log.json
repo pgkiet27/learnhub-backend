@@ -1,0 +1,70 @@
+[
+  {
+    "checked_at": "2026-09-21T20:40:56",
+    "model": "Logistic Regression",
+    "simulated_drift": 0.0,
+    "auc_trained": 0.8003407385677698,
+    "auc_on_new_data": 0.7874201462065331,
+    "degraded": false,
+    "reasons": [],
+    "action": "none"
+  },
+  {
+    "checked_at": "2026-09-21T20:41:13",
+    "model": "Logistic Regression",
+    "simulated_drift": 0.7,
+    "auc_trained": 0.8003407385677698,
+    "auc_on_new_data": 0.6562665301234389,
+    "degraded": true,
+    "reasons": [
+      "AUC 0.6563 thấp hơn ngưỡng 0.7",
+      "AUC tụt 0.1441 so với lúc train (cho phép tối đa 0.05)"
+    ],
+    "action": "retrained & deployed",
+    "auc_after_retrain": 0.7771030548726043
+  },
+  {
+    "checked_at": "2026-09-21T20:41:47",
+    "model": "Logistic Regression",
+    "simulated_drift": 0.0,
+    "auc_trained": 0.8003407385677698,
+    "auc_on_new_data": 0.7874201462065331,
+    "degraded": false,
+    "reasons": [],
+    "action": "none"
+  },
+  {
+    "checked_at": "2026-09-24T18:02:59",
+    "model": "Logistic Regression",
+    "simulated_drift": 0.0,
+    "auc_trained": 0.8003407385677698,
+    "auc_on_new_data": 0.7874201462065331,
+    "degraded": false,
+    "reasons": [],
+    "action": "none"
+  },
+  {
+    "checked_at": "2026-09-24T18:03:01",
+    "model": "Logistic Regression",
+    "simulated_drift": 0.7,
+    "auc_trained": 0.8003407385677698,
+    "auc_on_new_data": 0.6562665301234389,
+    "degraded": true,
+    "reasons": [
+      "AUC 0.6563 thấp hơn ngưỡng 0.7",
+      "AUC tụt 0.1441 so với lúc train (cho phép tối đa 0.05)"
+    ],
+    "action": "retrained & deployed",
+    "auc_after_retrain": 0.7771030548726043
+  },
+  {
+    "checked_at": "2026-09-24T18:03:11",
+    "model": "Logistic Regression",
+    "simulated_drift": 0.0,
+    "auc_trained": 0.8003407385677698,
+    "auc_on_new_data": 0.7874201462065331,
+    "degraded": false,
+    "reasons": [],
+    "action": "none"
+  }
+]

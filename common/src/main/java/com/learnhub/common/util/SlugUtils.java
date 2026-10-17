@@ -8,6 +8,7 @@ public final class SlugUtils {
     private SlugUtils() {
     }
 
+    private static final Pattern DIACRITICS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
     private static final Pattern NON_LATIN = Pattern.compile("[^\\w-]");
     private static final Pattern MULTI_HYPHEN = Pattern.compile("-{2,}");
 
@@ -18,8 +19,12 @@ public final class SlugUtils {
         // Normalize - separate accented characters into base + accent
         String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
 
+        // Strip the leftover combining accent marks (e.g. Vietnamese diacritics)
+        // instead of letting them fall through to NON_LATIN and turn into stray hyphens
+        String withoutDiacritics = DIACRITICS.matcher(normalized).replaceAll("");
+
         // lowercase
-        String lower = normalized.toLowerCase();
+        String lower = withoutDiacritics.toLowerCase();
 
         // delete character is not alphabet, number, or strike
         String slug = NON_LATIN.matcher(lower).replaceAll("-");
@@ -29,5 +34,12 @@ public final class SlugUtils {
 
         // delete strike at beginning and ending
         return slug.strip().replaceAll("^-|-$", "");
+    }
+
+    // append a short random-ish suffix when the base slug already exists
+    public static String toUniqueSlug(String input) {
+        String slug = toSlug(input);
+        String suffix = Long.toHexString(System.currentTimeMillis()).substring(8);
+        return slug + "-" + suffix;
     }
 }
