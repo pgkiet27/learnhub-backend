@@ -50,6 +50,7 @@
         <!-- [FIX 3] Add Lombok version property for reuse in multiple places -->
         <lombok.version>1.18.42</lombok.version>
         <shedlock.version>6.6.0</shedlock.version>
+        <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
     </properties>
 
     <!-- Centralized dependency versions -->
@@ -235,6 +236,13 @@
                              (e.g. CourseApprovalIT) also use @MockitoBean -->
                         <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                     </configuration>
+                </plugin>
+
+                <!-- Lets CI run "mvn sonar:sonar": the sonar prefix is not in Maven's default plugin groups -->
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>${sonar-maven-plugin.version}</version>
                 </plugin>
 
             </plugins>
