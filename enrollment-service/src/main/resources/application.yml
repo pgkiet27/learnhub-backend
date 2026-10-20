@@ -119,5 +119,5 @@ churn:
       prefix: ${CHURN_EXPORT_PREFIX:churn}
 
 aws:
-  region: ${AWS_REGION:us-east-1}
+  region: ${AWS_REGION:ap-southeast-1}
   profile: ${AWS_PROFILE:}
