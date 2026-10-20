@@ -169,6 +169,26 @@ public class CourseApprovalService {
     }
 
     /**
+     * Admin lists every course on the platform, optionally filtered by status, newest first.
+     */
+    @Transactional(readOnly = true)
+    public com.learnhub.common.dto.PageResponse<CourseResponse> getAllCourses(
+            String status, org.springframework.data.domain.Pageable pageable) {
+        if (status == null || status.isBlank()) {
+            return com.learnhub.common.dto.PageResponse.of(
+                    courseRepository.findAll(pageable).map(courseService::toCourseResponse));
+        }
+        Course.Status parsed;
+        try {
+            parsed = Course.Status.valueOf(status.toLowerCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_STATUS", "Trạng thái không hợp lệ: " + status);
+        }
+        return com.learnhub.common.dto.PageResponse.of(
+                courseRepository.findByStatus(parsed, pageable).map(courseService::toCourseResponse));
+    }
+
+    /**
      * Admin gets the list of pending courses.
      */
     @Transactional(readOnly = true)

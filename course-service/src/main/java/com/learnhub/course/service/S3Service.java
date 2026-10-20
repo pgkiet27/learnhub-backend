@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -44,6 +46,9 @@ public class S3Service {
 
     @Value("${aws.region}")
     private String region;
+
+    @Value("${aws.cloudfront.domain:}")
+    private String cdnDomain;
 
     /**
      * Generates a presigned URL for the Frontend to upload a file to S3.
@@ -100,12 +105,38 @@ public class S3Service {
     }
 
     /**
-     * Builds the public URL of a file.
-     * Switch to a CloudFront URL if using CloudFront.
+     * Builds the public URL of a file: through CloudFront when configured (the bucket is private),
+     * otherwise the direct S3 URL (local development).
      */
     public String buildCdnUrl(String s3Key) {
-        return String.format("https://%s.s3.%s.amazonaws.com/%s",
-                bucketName, region, s3Key);
+        return (hasCdn() ? cdnBaseUrl() : s3BaseUrl()) + s3Key;
+    }
+
+    /**
+     * Returns the S3 key behind one of our file URLs (CloudFront or direct S3); empty for external
+     * URLs (e.g. seed images on Unsplash), so those are never treated as files in our bucket.
+     */
+    public Optional<String> keyFromUrl(String url) {
+        if (url == null || url.isBlank()) return Optional.empty();
+        for (String base : hasCdn() ? List.of(cdnBaseUrl(), s3BaseUrl()) : List.of(s3BaseUrl())) {
+            if (url.startsWith(base) && url.length() > base.length()) {
+                return Optional.of(url.substring(base.length()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean hasCdn() {
+        return cdnDomain != null && !cdnDomain.isBlank();
+    }
+
+    private String cdnBaseUrl() {
+        String base = cdnDomain.startsWith("http") ? cdnDomain : "https://" + cdnDomain;
+        return base.replaceAll("/+$", "") + "/";
+    }
+
+    private String s3BaseUrl() {
+        return String.format("https://%s.s3.%s.amazonaws.com/", bucketName, region);
     }
 
     // Remove special characters from the file name

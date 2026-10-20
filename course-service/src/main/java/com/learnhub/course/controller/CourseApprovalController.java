@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,6 +47,19 @@ public class CourseApprovalController {
     }
 
     // Admin Actions
+
+    @Operation(summary = "Admin lấy danh sách mọi khóa học (lọc theo trạng thái nếu có)")
+    @GetMapping("/admin/courses")
+    public ResponseEntity<ApiResponse<PageResponse<CourseResponse>>> getAllCourses(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                approvalService.getAllCourses(status,
+                        PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))),
+                "OK"));
+    }
 
     @Operation(summary = "Admin lấy danh sách khóa học đang pending")
     @GetMapping("/admin/courses/pending")
