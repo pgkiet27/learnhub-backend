@@ -61,6 +61,6 @@ def _sagemaker_client():
     # enrollment-service keeps the day's features even when scoring fails.
     return boto3.client(
         "sagemaker-runtime",
-        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+        region_name=os.environ.get("AWS_REGION", "ap-southeast-1"),
         config=Config(connect_timeout=5, read_timeout=50, retries={"total_max_attempts": 1}),
     )

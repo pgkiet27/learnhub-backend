@@ -19,6 +19,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.UUID;
 
@@ -29,6 +31,7 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final CategoryRepository categoryRepository;
+    private final S3Service s3Service;
 
     // Instructor: Create a new course
 
@@ -182,6 +185,30 @@ public class CourseService {
 
         courseRepository.delete(course);
         log.info("Course deleted: {} by instructor: {}", courseId, instructorId);
+
+        s3Service.keyFromUrl(course.getThumbnailUrl()).ifPresent(this::deleteFileAfterCommit);
+    }
+
+    // Removes an uploaded file only once the DB change is committed, so a rollback never leaves a course
+    // pointing at a missing file; a failed S3 delete only leaves an orphan object behind
+    private void deleteFileAfterCommit(String s3Key) {
+        Runnable delete = () -> {
+            try {
+                s3Service.deleteFile(s3Key);
+            } catch (RuntimeException e) {
+                log.warn("Could not delete S3 file {}: {}", s3Key, e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    delete.run();
+                }
+            });
+        } else {
+            delete.run();
+        }
     }
 
     // Private helpers

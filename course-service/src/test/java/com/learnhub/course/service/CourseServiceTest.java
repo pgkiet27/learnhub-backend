@@ -36,6 +36,8 @@ class CourseServiceTest {
     private CourseRepository courseRepository;
     @Mock
     private CategoryRepository categoryRepository;
+    @Mock
+    private S3Service s3Service;
 
     @InjectMocks
     private CourseService courseService;
@@ -223,6 +225,56 @@ class CourseServiceTest {
 
             // Then
             then(courseRepository).should(times(1)).delete(mockCourse);
+        }
+
+        @Test
+        @DisplayName("Xóa course có thumbnail trong bucket — xóa luôn file trên S3")
+        void deleteCourse_WithUploadedThumbnail_ShouldDeleteS3File() {
+            // Given
+            mockCourse.setThumbnailUrl("https://d123.cloudfront.net/thumbnails/c1/a.png");
+            given(courseRepository.findByIdAndInstructorId(courseId, instructorId))
+                    .willReturn(Optional.of(mockCourse));
+            given(s3Service.keyFromUrl(mockCourse.getThumbnailUrl()))
+                    .willReturn(Optional.of("thumbnails/c1/a.png"));
+
+            // When
+            courseService.deleteCourse(courseId, instructorId);
+
+            // Then
+            then(s3Service).should().deleteFile("thumbnails/c1/a.png");
+        }
+
+        @Test
+        @DisplayName("Xóa course có thumbnail ngoài (Unsplash) — không đụng S3")
+        void deleteCourse_WithExternalThumbnail_ShouldNotTouchS3() {
+            // Given
+            mockCourse.setThumbnailUrl("https://images.unsplash.com/photo-1");
+            given(courseRepository.findByIdAndInstructorId(courseId, instructorId))
+                    .willReturn(Optional.of(mockCourse));
+            given(s3Service.keyFromUrl(mockCourse.getThumbnailUrl())).willReturn(Optional.empty());
+
+            // When
+            courseService.deleteCourse(courseId, instructorId);
+
+            // Then
+            then(s3Service).should(never()).deleteFile(anyString());
+        }
+
+        @Test
+        @DisplayName("S3 lỗi khi xóa file — khóa học vẫn được xóa, không throw")
+        void deleteCourse_S3Failure_ShouldNotFail() {
+            // Given
+            mockCourse.setThumbnailUrl("https://d123.cloudfront.net/thumbnails/c1/a.png");
+            given(courseRepository.findByIdAndInstructorId(courseId, instructorId))
+                    .willReturn(Optional.of(mockCourse));
+            given(s3Service.keyFromUrl(anyString())).willReturn(Optional.of("thumbnails/c1/a.png"));
+            willThrow(new RuntimeException("S3 down")).given(s3Service).deleteFile(anyString());
+
+            // When
+            courseService.deleteCourse(courseId, instructorId);
+
+            // Then
+            then(courseRepository).should().delete(mockCourse);
         }
 
         @Test

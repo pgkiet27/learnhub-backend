@@ -92,9 +92,12 @@ logging:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
 
 aws:
-  region: ${AWS_REGION:us-east-1}
+  region: ${AWS_REGION:ap-southeast-1}
   profile: ${AWS_PROFILE:}
   s3:
     bucket-name: ${AWS_S3_BUCKET:learnhub-media-abc123}
     presigned-url-expiry: 900  # 15 mins (secs)
     max-file-size-mb: 500      # maximum 500MB for video
+  cloudfront:
+    # e.g. https://d1234abcd.cloudfront.net - empty falls back to the direct S3 URL
+    domain: ${CLOUDFRONT_DOMAIN:}
