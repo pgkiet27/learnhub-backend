@@ -22,11 +22,12 @@ public class CourseServiceClient {
 
     private final RestClient restClient;
 
-    public CourseServiceClient(@Value("${services.course.base-url}") String baseUrl) {
+    public CourseServiceClient(RestClient.Builder restClientBuilder,
+                               @Value("${services.course.base-url}") String baseUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(10));
-        this.restClient = RestClient.builder().baseUrl(baseUrl).requestFactory(factory).build();
+        this.restClient = restClientBuilder.baseUrl(baseUrl).requestFactory(factory).build();
     }
 
     /** Owner of the course in any status; empty if the course does not exist. */

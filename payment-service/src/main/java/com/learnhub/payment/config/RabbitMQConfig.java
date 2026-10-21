@@ -6,6 +6,7 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.boot.autoconfigure.amqp.RabbitTemplateConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,8 +29,11 @@ public class RabbitMQConfig {
 
     @Bean
     public RabbitTemplate rabbitTemplate(
+            RabbitTemplateConfigurer configurer,
             ConnectionFactory connectionFactory, MessageConverter messageConverter) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        // Configurer applies spring.rabbitmq.template.* (incl. observation-enabled for trace propagation)
+        RabbitTemplate template = new RabbitTemplate();
+        configurer.configure(template, connectionFactory);
         template.setMessageConverter(messageConverter);
         return template;
     }

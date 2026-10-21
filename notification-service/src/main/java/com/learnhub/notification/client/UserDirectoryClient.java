@@ -32,10 +32,11 @@ public class UserDirectoryClient {
     private final RestClient identityClient;
     private final RestClient userClient;
 
-    public UserDirectoryClient(@Value("${services.identity.base-url}") String identityUrl,
+    public UserDirectoryClient(RestClient.Builder restClientBuilder,
+                               @Value("${services.identity.base-url}") String identityUrl,
                                @Value("${services.user.base-url}") String userUrl) {
-        this.identityClient = build(identityUrl);
-        this.userClient = build(userUrl);
+        this.identityClient = build(restClientBuilder.clone(), identityUrl);
+        this.userClient = build(restClientBuilder.clone(), userUrl);
     }
 
     public Optional<String> findEmail(UUID userId) {
@@ -65,10 +66,10 @@ public class UserDirectoryClient {
         return Optional.of(response.data().getFirst());
     }
 
-    private static RestClient build(String baseUrl) {
+    private static RestClient build(RestClient.Builder builder, String baseUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(10));
-        return RestClient.builder().baseUrl(baseUrl).requestFactory(factory).build();
+        return builder.baseUrl(baseUrl).requestFactory(factory).build();
     }
 }

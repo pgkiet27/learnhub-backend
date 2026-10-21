@@ -11,10 +11,17 @@ import java.time.Duration;
 @Configuration
 public class RestClientConfig {
 
+    // Auto-configured builder carries the observation (tracing) instrumentation
+    private final RestClient.Builder restClientBuilder;
+
+    public RestClientConfig(RestClient.Builder restClientBuilder) {
+        this.restClientBuilder = restClientBuilder;
+    }
+
     @Bean
     public RestClient courseServiceRestClient(
             @Value("${services.course.base-url}") String courseServiceBaseUrl) {
-        return RestClient.builder()
+        return restClientBuilder.clone()
                 .baseUrl(courseServiceBaseUrl)
                 .build();
     }
@@ -43,11 +50,11 @@ public class RestClientConfig {
         return withTimeouts(baseUrl, Duration.ofSeconds(60));
     }
 
-    private static RestClient withTimeouts(String baseUrl, Duration readTimeout) {
+    private RestClient withTimeouts(String baseUrl, Duration readTimeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(readTimeout);
-        return RestClient.builder()
+        return restClientBuilder.clone()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .build();
