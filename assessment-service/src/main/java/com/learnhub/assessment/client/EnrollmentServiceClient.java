@@ -20,11 +20,12 @@ public class EnrollmentServiceClient {
 
     private final RestClient restClient;
 
-    public EnrollmentServiceClient(@Value("${services.enrollment.base-url}") String baseUrl) {
+    public EnrollmentServiceClient(RestClient.Builder restClientBuilder,
+                                   @Value("${services.enrollment.base-url}") String baseUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(10));
-        this.restClient = RestClient.builder().baseUrl(baseUrl).requestFactory(factory).build();
+        this.restClient = restClientBuilder.baseUrl(baseUrl).requestFactory(factory).build();
     }
 
     public boolean isEnrolled(UUID userId, UUID courseId) {

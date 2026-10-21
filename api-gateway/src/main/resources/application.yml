@@ -8,6 +8,10 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
+  # Copies the trace context into MDC on reactor threads so logs carry traceId
+  reactor:
+    context-propagation: auto
+
   cloud:
     gateway:
       globalcors:
@@ -77,6 +81,12 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${JAEGER_ENDPOINT:http://localhost:4318/v1/traces}
 
 logging:
   level:

@@ -10,8 +10,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    # Propagate trace context through message headers (publish -> consume in one trace)
+    template:
+      observation-enabled: true
     listener:
       simple:
+        observation-enabled: true
         # Retry transient failures (SMTP, user lookups), then drop the message instead of requeueing forever
         default-requeue-rejected: false
         retry:
