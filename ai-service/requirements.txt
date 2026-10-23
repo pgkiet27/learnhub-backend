@@ -11,8 +11,10 @@ python-dotenv==1.0.1
 pydantic==2.9.2
 tiktoken==0.8.0
 
-# Churn Prediction — sklearn pinned to the version the .pkl models were trained with
-scikit-learn==1.9.1
+# Churn Prediction — sklearn pinned to the version the .pkl models were trained with. It must equal the version in the
+# SageMaker image (learnhub/churn-sklearn, extended from the prebuilt sklearn image whose Python tops out at 1.7.2),
+# because training, the endpoint and ai-service all load the same .pkl files
+scikit-learn==1.7.2
 joblib>=1.3.0
 pandas>=2.0.0
 
