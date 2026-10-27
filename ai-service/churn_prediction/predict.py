@@ -37,7 +37,7 @@ FEATURE_RANGES = {
 
 @dataclass(frozen=True)
 class ChurnArtifacts:
-    """Files of one training run; also what the SageMaker container loads (see sagemaker_inference.py)."""
+    """Files of one training run; also what the SageMaker container loads (see churn_inference.py)."""
     model: object
     scaler: object
     feature_names: list

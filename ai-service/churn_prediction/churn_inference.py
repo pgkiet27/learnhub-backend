@@ -4,9 +4,9 @@ the same preprocessing (feature order, mean imputation, scaling) and risk thresh
 
 Packaging: model.tar.gz holds the files of one training run (best_model.pkl, scaler.pkl,
 feature_names.pkl, feature_means.pkl, best_model_name.txt); source_dir=churn_prediction/ and
-entry_point=sagemaker_inference.py, on a scikit-learn container with the same scikit-learn version
-as requirements.txt. Set the CHURN_MODEL_VERSION environment variable on the SageMaker Model to the
-Model Registry version (e.g. "churn-model/3"): it is returned as model_version and stored with every
+entry_point=churn_inference.py, on the learnhub/churn-sklearn image (same scikit-learn version as
+requirements.txt). Do not name it sagemaker_inference.py: that shadows the container's inference toolkit.
+Set the CHURN_MODEL_VERSION environment variable on the SageMaker Model to the Model Registry version (e.g. "churn-model/3"): it is returned as model_version and stored with every
 prediction in enrollment-service's churn_feature_snapshots.
 
 Request  (application/json): {"instances": [{"id": "<enrollment id>", "features": {"days_since_last_login": 3.0, ...}}]}
