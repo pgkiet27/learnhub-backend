@@ -123,7 +123,7 @@ s3://<bucket>/churn/labels/dt=YYYY-MM-DD/part-0.jsonl.gz     # dt = ngày snapsh
 curl -X POST "http://localhost:8084/api/v1/internal/churn/export?date=2026-10-03"
 ```
 
-Model churn mặc định chạy ngay trong ai-service (file trong `churn_prediction/models`). Khi model đã được deploy lên SageMaker, đặt `CHURN_MODEL_BACKEND=sagemaker` và `CHURN_SAGEMAKER_ENDPOINT` trong `ai-service/.env`: ai-service chuyển tiếp request sang endpoint, enrollment-service không cần sửa gì. Định dạng request/response của endpoint và cách đóng gói nằm trong `churn_prediction/sagemaker_inference.py`.
+Model churn mặc định chạy ngay trong ai-service (file trong `churn_prediction/models`). Khi model đã được deploy lên SageMaker, đặt `CHURN_MODEL_BACKEND=sagemaker` và `CHURN_SAGEMAKER_ENDPOINT` trong `ai-service/.env`: ai-service chuyển tiếp request sang endpoint, enrollment-service không cần sửa gì. Định dạng request/response của endpoint và cách đóng gói nằm trong `churn_prediction/churn_inference.py`.
 
 ## Chạy một service trên máy (dev)
 
