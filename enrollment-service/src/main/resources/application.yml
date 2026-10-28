@@ -13,7 +13,8 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
-      connection-init-sql: "SET TimeZone='UTC'"
+      # Production passes SELECT 1: pods already run in UTC and SET would pin RDS Proxy connections
+      connection-init-sql: ${DB_CONNECTION_INIT_SQL:SET TimeZone='UTC'}
 
   jpa:
     hibernate:

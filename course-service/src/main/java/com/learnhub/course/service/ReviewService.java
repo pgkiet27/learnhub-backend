@@ -4,6 +4,7 @@ import com.learnhub.common.dto.PageResponse;
 import com.learnhub.common.exception.ConflictException;
 import com.learnhub.common.exception.ForbiddenException;
 import com.learnhub.common.exception.ResourceNotFoundException;
+import com.learnhub.course.datasource.ReadFromReplica;
 import com.learnhub.course.dto.request.CreateReviewRequest;
 import com.learnhub.course.dto.response.ReviewResponse;
 import com.learnhub.course.entity.Course;
@@ -69,6 +70,7 @@ public class ReviewService {
     /**
      * Gets the list of reviews for a course.
      */
+    @ReadFromReplica
     @Transactional(readOnly = true)
     public PageResponse<ReviewResponse> getReviewsByCourse(UUID courseId, Pageable pageable) {
         return PageResponse.of(
