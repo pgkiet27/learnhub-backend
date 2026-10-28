@@ -4,6 +4,7 @@ import com.learnhub.common.dto.PageResponse;
 import com.learnhub.common.exception.ForbiddenException;
 import com.learnhub.common.exception.ResourceNotFoundException;
 import com.learnhub.common.util.SlugUtils;
+import com.learnhub.course.datasource.ReadFromReplica;
 import com.learnhub.course.dto.request.CreateCourseRequest;
 import com.learnhub.course.dto.request.UpdateCourseRequest;
 import com.learnhub.course.dto.response.CourseResponse;
@@ -137,6 +138,7 @@ public class CourseService {
 
     // Public: Get list of published courses
 
+    @ReadFromReplica
     @Transactional(readOnly = true)
     @Cacheable(value = "courses", key = "'list_' + #pageable.pageNumber")
     public PageResponse<CourseResponse> getPublishedCourses(Pageable pageable) {
@@ -147,6 +149,7 @@ public class CourseService {
 
     // Public: Get course details by slug
 
+    @ReadFromReplica
     @Transactional(readOnly = true)
     @Cacheable(value = "courses", key = "#slug")
     public CourseResponse getCourseBySlug(String slug) {

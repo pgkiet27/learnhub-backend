@@ -1,5 +1,6 @@
 package com.learnhub.course.service;
 
+import com.learnhub.course.datasource.ReadFromReplica;
 import com.learnhub.course.dto.response.CategoryResponse;
 import com.learnhub.course.entity.Category;
 import com.learnhub.course.entity.Course;
@@ -28,6 +29,7 @@ public class CategoryService {
      * The counts come from one grouped query rather than a COUNT per category, and are looked
      * up from a map while mapping.
      */
+    @ReadFromReplica
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategories() {
         Map<UUID, Long> publishedPerCategory = courseRepository

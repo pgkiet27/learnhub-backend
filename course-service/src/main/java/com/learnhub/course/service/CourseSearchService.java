@@ -1,6 +1,7 @@
 package com.learnhub.course.service;
 
 import com.learnhub.common.dto.PageResponse;
+import com.learnhub.course.datasource.ReadFromReplica;
 import com.learnhub.course.dto.response.CourseResponse;
 import com.learnhub.course.entity.Course;
 import com.learnhub.course.repository.CourseRepository;
@@ -57,6 +58,7 @@ public class CourseSearchService {
      * @param minRating  Minimum rating (1-5)
      * @param pageable   Pagination + sorting
      */
+    @ReadFromReplica
     @Transactional(readOnly = true)
     @Cacheable(value = "search",
             key = "#keyword + '_' + #categoryId + '_' + #level + '_' + #minPrice + '_' + #maxPrice + '_' + #minRating + '_' + #pageable.pageNumber",
@@ -140,6 +142,7 @@ public class CourseSearchService {
     /**
      * Gets featured courses (bestseller + featured).
      */
+    @ReadFromReplica
     @Transactional(readOnly = true)
     @Cacheable(value = "featured-courses")
     public List<CourseResponse> getFeaturedCourses() {
@@ -155,6 +158,7 @@ public class CourseSearchService {
     /**
      * Gets courses by category.
      */
+    @ReadFromReplica
     @Transactional(readOnly = true)
     public PageResponse<CourseResponse> getCoursesByCategory(
             String categoryId, Pageable pageable) {
