@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ import java.util.UUID;
  * <p>
  * Coupons are used in the Payment Service:
  * 1. User enters a coupon code at checkout
- * 2. Payment Service calls GET /coupons/validate?code={code}&courseId={courseId}
+ * 2. Payment Service calls GET /internal/coupons/validate?code={code}&courseId={courseId}
  * 3. Course Service validates it and returns the discount amount
  * 4. Payment Service applies the discount to the transaction
  */
@@ -115,6 +116,9 @@ public class CouponService {
             discountAmount = coupon.getDiscountValue()
                     .min(originalPrice); // Never discount more than the original price
         }
+
+        // Stripe charges whole cents, so the discount must not carry more than 2 decimals
+        discountAmount = discountAmount.setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal finalPrice = originalPrice.subtract(discountAmount)
                 .max(BigDecimal.ZERO);

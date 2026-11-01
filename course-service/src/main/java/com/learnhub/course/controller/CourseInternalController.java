@@ -43,6 +43,7 @@ public class CourseInternalController {
                 .title(course.getTitle())
                 .thumbnailUrl(course.getThumbnailUrl())
                 .price(course.getPrice())
+                .discountPrice(course.getDiscountPrice())
                 .status(course.getStatus().name())
                 .instructorId(course.getInstructorId())
                 .totalLessons(course.getTotalLessons())
