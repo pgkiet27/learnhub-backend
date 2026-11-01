@@ -139,6 +139,31 @@ class CouponServiceTest {
         }
 
         @Test
+        @DisplayName("Coupon phần trăm trên giá lẻ — làm tròn về 2 chữ số thập phân")
+        void validateCoupon_PercentOnDecimalPrice_ShouldRoundToCents() {
+            // Given
+            Coupon coupon = Coupon.builder()
+                    .id(UUID.randomUUID())
+                    .code("SAVE15")
+                    .discountType(Coupon.DiscountType.percent)
+                    .discountValue(BigDecimal.valueOf(15))
+                    .minOrderValue(BigDecimal.ZERO)
+                    .isActive(true)
+                    .createdBy(UUID.randomUUID())
+                    .build();
+            given(couponRepository.findValidCoupon(eq("SAVE15"), eq(courseId), any()))
+                    .willReturn(Optional.of(coupon));
+
+            // When
+            CouponValidationResponse response =
+                    couponService.validateCoupon("SAVE15", courseId, new BigDecimal("49.99"));
+
+            // Then — 15% of 49.99 is 7.4985
+            assertThat(response.getDiscountAmount()).isEqualTo(new BigDecimal("7.50"));
+            assertThat(response.getFinalPrice()).isEqualTo(new BigDecimal("42.49"));
+        }
+
+        @Test
         @DisplayName("Coupon không hợp lệ — isValid = false")
         void validateCoupon_InvalidCoupon_ShouldReturnInvalidResponse() {
             // Given

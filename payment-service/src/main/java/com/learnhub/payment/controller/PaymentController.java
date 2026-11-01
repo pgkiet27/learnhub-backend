@@ -2,11 +2,14 @@ package com.learnhub.payment.controller;
 
 import com.learnhub.common.dto.ApiResponse;
 import com.learnhub.common.dto.PageResponse;
+import com.learnhub.payment.dto.request.ApplyCouponRequest;
+import com.learnhub.payment.dto.response.ApplyCouponResponse;
 import com.learnhub.payment.dto.response.CheckoutResponse;
 import com.learnhub.payment.dto.response.PaymentHistoryResponse;
 import com.learnhub.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,6 +37,17 @@ public class PaymentController {
         CheckoutResponse response = paymentService.createCheckout(userId, courseId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Payment Intent created"));
+    }
+
+    @Operation(summary = "Apply a coupon to a pending payment and update its Payment Intent")
+    @PostMapping("/{paymentId}/coupon")
+    public ResponseEntity<ApiResponse<ApplyCouponResponse>> applyCoupon(
+            @PathVariable UUID paymentId,
+            @RequestBody @Valid ApplyCouponRequest request,
+            @RequestHeader("X-User-Id") UUID userId) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                paymentService.applyCoupon(userId, paymentId, request.getCode()), "Coupon applied"));
     }
 
     @Operation(summary = "View your own transaction history")

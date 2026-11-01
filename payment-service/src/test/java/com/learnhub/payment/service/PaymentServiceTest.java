@@ -6,7 +6,9 @@ import com.learnhub.common.exception.InternalServerException;
 import com.learnhub.common.exception.ResourceNotFoundException;
 import com.learnhub.payment.client.CourseServiceClient;
 import com.learnhub.payment.dto.request.RefundRequest;
+import com.learnhub.payment.dto.response.ApplyCouponResponse;
 import com.learnhub.payment.dto.response.CheckoutResponse;
+import com.learnhub.payment.dto.response.CouponValidationResponse;
 import com.learnhub.payment.dto.response.CourseInfoResponse;
 import com.learnhub.payment.entity.Payment;
 import com.learnhub.payment.entity.Refund;
@@ -17,18 +19,21 @@ import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.PaymentIntentUpdateParams;
 import com.stripe.param.RefundCreateParams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -122,6 +127,28 @@ class PaymentServiceTest {
         }
 
         @Test
+        @DisplayName("Course on sale — charges the sale price the catalog shows")
+        void createCheckout_OnSale_ShouldChargeSalePrice() {
+            paidCourse.setDiscountPrice(new BigDecimal("29.99"));
+            given(courseServiceClient.getCourse(courseId)).willReturn(Optional.of(paidCourse));
+            given(paymentRepository.save(any(Payment.class))).willAnswer(inv -> inv.getArgument(0));
+
+            PaymentIntent fakeIntent = new PaymentIntent();
+            fakeIntent.setId("pi_123");
+            ArgumentCaptor<PaymentIntentCreateParams> params =
+                    ArgumentCaptor.forClass(PaymentIntentCreateParams.class);
+
+            try (MockedStatic<PaymentIntent> mocked = mockStatic(PaymentIntent.class)) {
+                mocked.when(() -> PaymentIntent.create(params.capture())).thenReturn(fakeIntent);
+
+                CheckoutResponse response = paymentService.createCheckout(userId, courseId);
+
+                assertThat(response.getAmount()).isEqualByComparingTo("29.99");
+                assertThat(params.getValue().getAmount()).isEqualTo(2999L);
+            }
+        }
+
+        @Test
         @DisplayName("Checkout a free course — throws BadRequestException")
         void createCheckout_FreeCourse_ShouldThrowBadRequest() {
             CourseInfoResponse freeCourse = CourseInfoResponse.builder()
@@ -176,8 +203,181 @@ class PaymentServiceTest {
     }
 
     @Nested
+    @DisplayName("applyCoupon()")
+    class ApplyCouponTests {
+
+        private Payment pendingPayment;
+
+        @BeforeEach
+        void setUp() {
+            pendingPayment = Payment.builder()
+                    .id(UUID.randomUUID()).userId(userId).courseId(courseId)
+                    .amount(new BigDecimal("49.99")).currency("usd")
+                    .stripePaymentIntentId("pi_123").status(Payment.Status.pending)
+                    .build();
+        }
+
+        private CouponValidationResponse validCoupon(String discount, String finalPrice) {
+            return new CouponValidationResponse(true, "SAVE15",
+                    new BigDecimal(discount), new BigDecimal(finalPrice), "OK");
+        }
+
+        @Test
+        @DisplayName("Valid coupon — the Payment Intent and the payment both get the discounted amount")
+        void applyCoupon_Valid_ShouldChargeDiscountedAmount() throws StripeException {
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+            given(courseServiceClient.validateCoupon("save15", courseId, new BigDecimal("49.99")))
+                    .willReturn(validCoupon("7.50", "42.49"));
+
+            PaymentIntent intent = mock(PaymentIntent.class);
+            ArgumentCaptor<PaymentIntentUpdateParams> params =
+                    ArgumentCaptor.forClass(PaymentIntentUpdateParams.class);
+
+            try (MockedStatic<PaymentIntent> mocked = mockStatic(PaymentIntent.class)) {
+                mocked.when(() -> PaymentIntent.retrieve("pi_123")).thenReturn(intent);
+
+                ApplyCouponResponse response =
+                        paymentService.applyCoupon(userId, pendingPayment.getId(), "save15");
+
+                assertThat(response.getOriginalAmount()).isEqualByComparingTo("49.99");
+                assertThat(response.getAmount()).isEqualByComparingTo("42.49");
+            }
+
+            then(intent).should().update(params.capture());
+            assertThat(params.getValue().getAmount()).isEqualTo(4249L);
+            assertThat(pendingPayment.getAmount()).isEqualByComparingTo("42.49");
+            assertThat(pendingPayment.getDiscountAmount()).isEqualByComparingTo("7.50");
+            assertThat(pendingPayment.getCouponCode()).isEqualTo("SAVE15");
+            then(paymentRepository).should().save(pendingPayment);
+        }
+
+        @Test
+        @DisplayName("Changing coupon — computed from the pre-discount price, discounts do not stack")
+        void applyCoupon_SecondCoupon_ShouldNotStack() {
+            pendingPayment.setAmount(new BigDecimal("42.49"));
+            pendingPayment.setDiscountAmount(new BigDecimal("7.50"));
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+            given(courseServiceClient.validateCoupon("OTHER", courseId, new BigDecimal("49.99")))
+                    .willReturn(validCoupon("10.00", "39.99"));
+
+            try (MockedStatic<PaymentIntent> mocked = mockStatic(PaymentIntent.class)) {
+                mocked.when(() -> PaymentIntent.retrieve("pi_123")).thenReturn(mock(PaymentIntent.class));
+
+                paymentService.applyCoupon(userId, pendingPayment.getId(), "OTHER");
+            }
+
+            assertThat(pendingPayment.getAmount()).isEqualByComparingTo("39.99");
+            assertThat(pendingPayment.getDiscountAmount()).isEqualByComparingTo("10.00");
+        }
+
+        @Test
+        @DisplayName("Invalid coupon — rejected with the Course Service message, amount unchanged")
+        void applyCoupon_Invalid_ShouldThrowBadRequest() {
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+            given(courseServiceClient.validateCoupon(anyString(), any(), any()))
+                    .willReturn(new CouponValidationResponse(false, null, null, null, "Mã đã hết hạn"));
+
+            assertThatThrownBy(() -> paymentService.applyCoupon(userId, pendingPayment.getId(), "OLD"))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessageContaining("hết hạn");
+
+            assertThat(pendingPayment.getAmount()).isEqualByComparingTo("49.99");
+            then(paymentRepository).should(never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Final price below the Stripe minimum — rejected, Stripe is not called")
+        void applyCoupon_BelowStripeMinimum_ShouldThrowBadRequest() {
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+            given(courseServiceClient.validateCoupon(anyString(), any(), any()))
+                    .willReturn(validCoupon("49.99", "0.00"));
+
+            try (MockedStatic<PaymentIntent> mocked = mockStatic(PaymentIntent.class)) {
+                assertThatThrownBy(() -> paymentService.applyCoupon(userId, pendingPayment.getId(), "FREE"))
+                        .isInstanceOf(BadRequestException.class);
+
+                mocked.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("Another student's payment — treated as not found")
+        void applyCoupon_OtherUsersPayment_ShouldThrowNotFound() {
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+
+            assertThatThrownBy(() -> paymentService.applyCoupon(UUID.randomUUID(), pendingPayment.getId(), "SAVE15"))
+                    .isInstanceOf(ResourceNotFoundException.class);
+
+            then(courseServiceClient).should(never()).validateCoupon(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("Payment no longer pending — throws ConflictException")
+        void applyCoupon_AlreadyPaid_ShouldThrowConflict() {
+            pendingPayment.setStatus(Payment.Status.succeeded);
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+
+            assertThatThrownBy(() -> paymentService.applyCoupon(userId, pendingPayment.getId(), "SAVE15"))
+                    .isInstanceOf(ConflictException.class);
+        }
+
+        @Test
+        @DisplayName("Stripe rejects the update — the payment keeps its amount")
+        void applyCoupon_StripeError_ShouldKeepAmount() throws StripeException {
+            given(paymentRepository.findById(pendingPayment.getId())).willReturn(Optional.of(pendingPayment));
+            given(courseServiceClient.validateCoupon(anyString(), any(), any()))
+                    .willReturn(validCoupon("7.50", "42.49"));
+
+            PaymentIntent intent = mock(PaymentIntent.class);
+            given(intent.update(any(PaymentIntentUpdateParams.class))).willThrow(mock(StripeException.class));
+
+            try (MockedStatic<PaymentIntent> mocked = mockStatic(PaymentIntent.class)) {
+                mocked.when(() -> PaymentIntent.retrieve("pi_123")).thenReturn(intent);
+
+                assertThatThrownBy(() -> paymentService.applyCoupon(userId, pendingPayment.getId(), "SAVE15"))
+                        .isInstanceOf(InternalServerException.class);
+            }
+
+            assertThat(pendingPayment.getAmount()).isEqualByComparingTo("49.99");
+            then(paymentRepository).should(never()).save(any());
+        }
+    }
+
+    @Nested
     @DisplayName("handlePaymentSucceeded()")
     class HandlePaymentSucceededTests {
+
+        @Test
+        @DisplayName("Payment with a coupon — counted as used, split computed on the discounted amount")
+        void handlePaymentSucceeded_WithCoupon_ShouldMarkCouponUsed() {
+            Payment payment = Payment.builder()
+                    .id(UUID.randomUUID()).userId(userId).courseId(courseId)
+                    .amount(new BigDecimal("42.49")).currency("usd").couponCode("SAVE15")
+                    .stripePaymentIntentId("pi_123").status(Payment.Status.pending)
+                    .build();
+            given(paymentRepository.findByStripePaymentIntentId("pi_123")).willReturn(Optional.of(payment));
+
+            paymentService.handlePaymentSucceeded(mockSucceededEvent("pi_123"));
+
+            then(courseServiceClient).should().markCouponUsed("SAVE15");
+            assertThat(payment.getInstructorEarningAmount()).isEqualByComparingTo("29.74");
+        }
+
+        @Test
+        @DisplayName("Course Service down while counting the coupon — the payment still succeeds")
+        void handlePaymentSucceeded_CouponCountFails_ShouldStillSucceed() {
+            Payment payment = Payment.builder()
+                    .id(UUID.randomUUID()).userId(userId).courseId(courseId)
+                    .amount(new BigDecimal("42.49")).currency("usd").couponCode("SAVE15")
+                    .stripePaymentIntentId("pi_123").status(Payment.Status.pending)
+                    .build();
+            given(paymentRepository.findByStripePaymentIntentId("pi_123")).willReturn(Optional.of(payment));
+            willThrow(new RestClientException("down")).given(courseServiceClient).markCouponUsed("SAVE15");
+
+            paymentService.handlePaymentSucceeded(mockSucceededEvent("pi_123"));
+
+            assertThat(payment.getStatus()).isEqualTo(Payment.Status.succeeded);
+        }
 
         @Test
         @DisplayName("Correctly computes the 30/70 revenue split and publishes PaymentSuccessEvent")

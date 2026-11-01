@@ -45,6 +45,13 @@ public class Payment {
     @Builder.Default
     private String currency = "usd";
 
+    @Column(name = "coupon_code", length = 50)
+    private String couponCode;
+
+    @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(name = "platform_fee_amount", precision = 10, scale = 2)
     private BigDecimal platformFeeAmount;
 

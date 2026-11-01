@@ -9,7 +9,9 @@ import com.learnhub.common.exception.ResourceNotFoundException;
 import com.learnhub.payment.client.CourseServiceClient;
 import com.learnhub.payment.config.RabbitMQConfig;
 import com.learnhub.payment.dto.request.RefundRequest;
+import com.learnhub.payment.dto.response.ApplyCouponResponse;
 import com.learnhub.payment.dto.response.CheckoutResponse;
+import com.learnhub.payment.dto.response.CouponValidationResponse;
 import com.learnhub.payment.dto.response.CourseInfoResponse;
 import com.learnhub.payment.dto.response.PaymentHistoryResponse;
 import com.learnhub.payment.dto.response.RefundResponse;
@@ -24,6 +26,7 @@ import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.PaymentIntentUpdateParams;
 import com.stripe.param.RefundCreateParams;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +35,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -46,6 +50,8 @@ public class PaymentService {
 
     private static final BigDecimal PLATFORM_FEE_RATE = new BigDecimal("0.30");
     private static final int REFUND_SCALE = 2;
+    // Stripe rejects USD charges below this amount
+    private static final BigDecimal MIN_CHARGE_AMOUNT = new BigDecimal("0.50");
 
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
@@ -71,7 +77,8 @@ public class PaymentService {
             throw new ConflictException("ALREADY_PURCHASED", "You have already purchased this course");
         }
 
-        PaymentIntent intent = createStripePaymentIntent(userId, courseId, course.getPrice());
+        BigDecimal amount = payablePrice(course);
+        PaymentIntent intent = createStripePaymentIntent(userId, courseId, amount);
 
         Payment payment = Payment.builder()
                 .userId(userId)
@@ -79,7 +86,7 @@ public class PaymentService {
                 .instructorId(course.getInstructorId())
                 .courseTitle(course.getTitle())
                 .courseThumbnailUrl(course.getThumbnailUrl())
-                .amount(course.getPrice())
+                .amount(amount)
                 .currency(currency)
                 .stripePaymentIntentId(intent.getId())
                 .build();
@@ -96,13 +103,86 @@ public class PaymentService {
                 .build();
     }
 
+    // The catalog shows the sale price when a course has one, so that is the price to charge
+    private BigDecimal payablePrice(CourseInfoResponse course) {
+        BigDecimal salePrice = course.getDiscountPrice();
+        boolean onSale = salePrice != null && salePrice.signum() > 0
+                && salePrice.compareTo(course.getPrice()) < 0;
+        return onSale ? salePrice : course.getPrice();
+    }
+
+    /**
+     * The Payment Intent already exists when the student enters a coupon, because Stripe Elements
+     * needs its clientSecret to render the card form, so its amount is updated in place.
+     */
+    @Transactional
+    public ApplyCouponResponse applyCoupon(UUID userId, UUID paymentId, String couponCode) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .filter(p -> p.getUserId().equals(userId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PAYMENT_NOT_FOUND", "Payment does not exist"));
+
+        if (payment.getStatus() != Payment.Status.pending) {
+            throw new ConflictException("PAYMENT_NOT_PENDING",
+                    "Không thể áp dụng mã giảm giá cho giao dịch này");
+        }
+
+        // Always start from the pre-discount price so that changing coupon cannot stack discounts
+        BigDecimal originalAmount = payment.getAmount().add(payment.getDiscountAmount());
+        CouponValidationResponse coupon = courseServiceClient.validateCoupon(
+                couponCode, payment.getCourseId(), originalAmount);
+
+        if (!coupon.isValid()) {
+            throw new BadRequestException("COUPON_INVALID", coupon.message());
+        }
+        if (coupon.finalPrice().compareTo(MIN_CHARGE_AMOUNT) < 0) {
+            throw new BadRequestException("COUPON_AMOUNT_TOO_LOW",
+                    "Số tiền sau giảm phải tối thiểu " + MIN_CHARGE_AMOUNT + " USD để thanh toán qua Stripe");
+        }
+
+        updateStripeAmount(payment, coupon);
+
+        payment.setCouponCode(coupon.couponCode());
+        payment.setDiscountAmount(coupon.discountAmount());
+        payment.setAmount(coupon.finalPrice());
+        paymentRepository.save(payment);
+        log.info("Applied coupon {} to payment {}: {} -> {}",
+                coupon.couponCode(), payment.getId(), originalAmount, coupon.finalPrice());
+
+        return ApplyCouponResponse.builder()
+                .paymentId(payment.getId())
+                .couponCode(coupon.couponCode())
+                .originalAmount(originalAmount)
+                .discountAmount(coupon.discountAmount())
+                .amount(coupon.finalPrice())
+                .currency(payment.getCurrency())
+                .build();
+    }
+
+    private void updateStripeAmount(Payment payment, CouponValidationResponse coupon) {
+        try {
+            PaymentIntent.retrieve(payment.getStripePaymentIntentId()).update(
+                    PaymentIntentUpdateParams.builder()
+                            .setAmount(toCents(coupon.finalPrice()))
+                            .putMetadata("couponCode", coupon.couponCode())
+                            .build());
+        } catch (StripeException e) {
+            log.error("Stripe PaymentIntent update failed for payment {}: {}",
+                    payment.getId(), e.getMessage());
+            throw new InternalServerException("STRIPE_ERROR",
+                    "Không thể áp dụng mã giảm giá, vui lòng thử lại sau");
+        }
+    }
+
+    // Stripe charges in the smallest currency unit (cents for USD) — 49.99 usd -> 4999
+    private long toCents(BigDecimal amount) {
+        return amount.multiply(BigDecimal.valueOf(100)).longValueExact();
+    }
+
     private PaymentIntent createStripePaymentIntent(UUID userId, UUID courseId, BigDecimal amount) {
         try {
-            // Stripe charges in the smallest currency unit (cents for USD) — 49.99 usd -> 4999
-            long amountInCents = amount.multiply(BigDecimal.valueOf(100)).longValueExact();
-
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
-                    .setAmount(amountInCents)
+                    .setAmount(toCents(amount))
                     .setCurrency(currency)
                     .putMetadata("userId", userId.toString())
                     .putMetadata("courseId", courseId.toString())
@@ -150,9 +230,23 @@ public class PaymentService {
         paymentRepository.save(payment);
 
         publishPaymentSuccessEvent(payment);
+        markCouponUsed(payment);
 
         log.info("Payment {} succeeded — platform fee {} / instructor earning {}",
                 payment.getId(), platformFee, instructorEarning);
+    }
+
+    private void markCouponUsed(Payment payment) {
+        if (payment.getCouponCode() == null) {
+            return;
+        }
+        try {
+            courseServiceClient.markCouponUsed(payment.getCouponCode());
+        } catch (RestClientException e) {
+            // The student has paid: a missed usage count must not fail the webhook and block enrollment
+            log.error("Could not count coupon {} as used for payment {}: {}",
+                    payment.getCouponCode(), payment.getId(), e.getMessage());
+        }
     }
 
     @Transactional

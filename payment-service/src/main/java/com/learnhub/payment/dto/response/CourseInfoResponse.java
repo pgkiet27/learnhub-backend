@@ -13,6 +13,7 @@ public class CourseInfoResponse {
     private String title;
     private String thumbnailUrl;
     private BigDecimal price;
+    private BigDecimal discountPrice;
     private String status;
     private UUID instructorId;
     private Integer totalLessons;

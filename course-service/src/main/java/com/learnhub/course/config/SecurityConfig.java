@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/api-docs/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/internal/coupons/*/use").permitAll()
 
                         // Instructor — requires JWT (X-User-Id header injected by the API Gateway)
                         .requestMatchers("/api/v1/courses/instructor/**").hasRole("instructor")
